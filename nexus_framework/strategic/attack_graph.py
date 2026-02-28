@@ -76,7 +76,7 @@ class GraphEdge:
     time_cost: int  # minutes
     required_tools: List[str] = field(default_factory=list)
     prerequisites: List[str] = field(default_factory=list)
-    side_effects: List[str] = field(default_factory=dict)
+    side_effects: List[str] = field(default_factory=list)
     
     @property
     def weight(self) -> float:

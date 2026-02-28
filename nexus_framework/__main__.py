@@ -1,7 +1,7 @@
 """
-BJHunt Alpha - Entry Point
+Nexus Automation Framework - Entry Point
 
-This module allows the package to be executed directly using 'python -m bjhunt_alpha'.
+This module allows the package to be executed directly using 'python -m nexus_framework'.
 """
 
 import sys

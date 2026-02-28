@@ -1,5 +1,5 @@
 """
-BJHunt Alpha - Full Offensive Security Toolkit
+Nexus Automation Framework - Full Offensive Security Toolkit
 
 Unrestricted execution environment for penetration testing.
 All commands allowed - full sudo access - no limitations.
@@ -19,12 +19,13 @@ import asyncio
 import json
 import platform
 import re
-from typing import Sequence, Union, Optional
+from typing import Sequence, Union, Optional, Dict, Any, List
 import os
 import datetime
 import logging
 import shutil
 import glob
+import uuid
 
 import httpx
 import mcp.types as types
@@ -33,11 +34,12 @@ import mcp.types as types
 # LOGGING CONFIGURATION - Structured JSON logging for audit trail
 # ==============================================================================
 
-logger = logging.getLogger("bjhunt_alpha")
+logger = logging.getLogger("nexus_framework")
 logger.setLevel(logging.INFO)
 
 # JSON log handler for audit trail
-json_handler = logging.FileHandler("bjhunt_audit.jsonl")
+_app_dir = os.environ.get("NEXUS_APP_DIR", "/app")
+json_handler = logging.FileHandler(os.path.join(_app_dir, "nexus_audit.jsonl"))
 json_handler.setFormatter(logging.Formatter('%(message)s'))
 logger.addHandler(json_handler)
 
@@ -61,7 +63,7 @@ def log_action(action: str, **kwargs):
 # SECURITY UTILITIES - Credential sanitization and validation
 # ==============================================================================
 
-def sanitize_credentials(text: str, password: str = None, hashes: str = None) -> str:
+def sanitize_credentials(text: str, password: Optional[str] = None, hashes: Optional[str] = None) -> str:
     """Mask credentials in output text."""
     if password and password in text:
         text = text.replace(password, "***PASSWORD***")
@@ -118,8 +120,11 @@ LONG_RUNNING_COMMANDS = [
     "find /", "grep -r", "locate", "updatedb",
 ]
 
+# Background job registry
+BACKGROUND_JOBS: Dict[str, Dict[str, Any]] = {}
+
 # --- Session Management Backend ---
-SESSIONS_DIR = "sessions"
+SESSIONS_DIR = os.path.join(os.environ.get("NEXUS_APP_DIR", "/app"), "sessions")
 ACTIVE_SESSION_FILE = os.path.join(SESSIONS_DIR, "active_session.txt")
 
 
@@ -354,7 +359,6 @@ async def session_delete(session_name: str) -> list:
         
         # Delete session directory and all contents
         session_dir = get_session_path(session_name)
-        import shutil
         shutil.rmtree(session_dir, ignore_errors=True)
         
         return [types.TextContent(type="text", text=
@@ -437,7 +441,7 @@ async def fetch_website(url: str) -> Sequence[Union[types.TextContent, types.Ima
     
     # Set user agent to identify the client
     headers = {
-        "User-Agent": "BJHunt Alpha (github.com/modelcontextprotocol/python-sdk)"
+        "User-Agent": "Nexus-Automation-Framework/1.0 (github.com/modelcontextprotocol/python-sdk)"
     }
     
     # Fetch the URL with timeout and redirect following
@@ -508,23 +512,68 @@ async def run_command(command: str, background: bool = False, timeout: int = 300
         run_in_bg = background or is_long_running(command)
         
         if run_in_bg:
-            # Generate unique output file
-            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_file = f"cmd_output_{ts}.txt"
-            
+            job_id = f"bg_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+            output_file = f"cmd_output_{job_id}.txt"
+            # Truncate/create output file immediately so it can be tailed
+            with open(output_file, "w", encoding="utf-8"):
+                pass
+
             process = await asyncio.create_subprocess_shell(
-                f"({command}) > {output_file} 2>&1 &",
+                command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            
-            return [types.TextContent(type="text", text=
-                f"🚀 Command running in background:\n"
-                f"```\n{command}\n```\n\n"
+
+            BACKGROUND_JOBS[job_id] = {
+                "command": command,
+                "output_file": output_file,
+                "status": "running",
+                "pid": process.pid,
+                "started": datetime.datetime.now().isoformat(),
+            }
+
+            async def _capture_stream(stream: Optional[asyncio.StreamReader], prefix: str = "") -> str:
+                if stream is None:
+                    return ""
+                chunks: List[str] = []
+                while True:
+                    chunk = await stream.readline()
+                    if not chunk:
+                        break
+                    text = chunk.decode('utf-8', errors='replace')
+                    entry = f"{prefix}{text}"
+                    chunks.append(entry)
+                    with open(output_file, "a", encoding="utf-8", errors="replace") as f:
+                        f.write(entry)
+                return "".join(chunks)
+
+            async def monitor_background_job() -> None:
+                try:
+                    stdout_task = asyncio.create_task(_capture_stream(process.stdout))
+                    stderr_task = asyncio.create_task(_capture_stream(process.stderr, "[STDERR] "))
+                    await process.wait()
+                    stdout_text, stderr_text = await asyncio.gather(stdout_task, stderr_task)
+                    BACKGROUND_JOBS[job_id]["stdout"] = stdout_text
+                    BACKGROUND_JOBS[job_id]["stderr"] = stderr_text
+                    BACKGROUND_JOBS[job_id]["status"] = "completed"
+                    BACKGROUND_JOBS[job_id]["return_code"] = process.returncode
+                except Exception as exc:
+                    BACKGROUND_JOBS[job_id]["status"] = "error"
+                    BACKGROUND_JOBS[job_id]["error"] = str(exc)
+                finally:
+                    BACKGROUND_JOBS[job_id]["finished"] = datetime.datetime.now().isoformat()
+                    cleanup_old_files("cmd_output_*.txt", max_files=100)
+
+            asyncio.create_task(monitor_background_job())
+
+            msg = (
+                f"🚀 Command running in background (Job ID: `{job_id}`)\n\n"
+                f"```\n{command}\n```\n"
                 f"📁 Output file: {output_file}\n"
                 f"📖 View results: cat {output_file}\n"
                 f"📊 Monitor: tail -f {output_file}"
-            )]
+            )
+            return [types.TextContent(type="text", text=msg)]
         
         # Execute command with extended timeout
         process = await asyncio.create_subprocess_shell(
@@ -577,6 +626,42 @@ async def sudo_command(command: str, timeout: int = 300) -> Sequence[types.TextC
         Command output
     """
     return await run_command(f"sudo {command}", timeout=timeout)
+
+
+async def background_jobs_status(job_id: Optional[str] = None) -> Sequence[types.TextContent]:
+    """Return status of background jobs (all or single job)."""
+    if job_id:
+        job = BACKGROUND_JOBS.get(job_id)
+        if not job:
+            return [types.TextContent(type="text", text=f"❌ Background job '{job_id}' not found.")]
+        details = _format_job(job_id, job)
+        return [types.TextContent(type="text", text=details)]
+
+    if not BACKGROUND_JOBS:
+        return [types.TextContent(type="text", text="📭 No background jobs recorded.")]
+
+    lines = ["📋 **Background Jobs**\n"]
+    for jid, job in sorted(BACKGROUND_JOBS.items(), key=lambda kv: kv[1]["started"], reverse=True):
+        lines.append(_format_job(jid, job))
+    return [types.TextContent(type="text", text="\n\n".join(lines))]
+
+
+def _format_job(job_id: str, job: Dict[str, Any]) -> str:
+    parts = [
+        f"### Job `{job_id}`",
+        f"Status: **{job.get('status', 'unknown').upper()}**",
+        f"Command: `{job.get('command', '')}`",
+        f"PID: {job.get('pid', 'n/a')}",
+        f"Output File: {job.get('output_file', 'n/a')}",
+        f"Started: {job.get('started', 'n/a')}",
+    ]
+    if job.get('finished'):
+        parts.append(f"Finished: {job['finished']}")
+    if 'return_code' in job:
+        parts.append(f"Return Code: {job['return_code']}")
+    if 'error' in job:
+        parts.append(f"Error: {job['error']}")
+    return "\n".join(parts)
 
 
 async def list_system_resources() -> Sequence[types.TextContent]:
@@ -705,19 +790,19 @@ async def list_system_resources() -> Sequence[types.TextContent]:
 async def vulnerability_scan(target: str, scan_type: str = "comprehensive") -> Sequence[types.TextContent]:
     """
     Perform automated vulnerability assessment with multiple tools.
-    
+
     Args:
         target: Target IP address or hostname
         scan_type: Type of scan (quick, comprehensive, web, network)
-        
+
     Returns:
         List containing TextContent with scan results
     """
-    timestamp = asyncio.get_event_loop().time()
-    output_file = f"vuln_scan_{target.replace('.', '_')}_{int(timestamp)}.txt"
-    
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = f"vuln_scan_{target.replace('.', '_')}_{timestamp}.txt"
+
     scan_commands = []
-    
+
     if scan_type == "quick":
         scan_commands = [
             f"nmap -F -sV {target}",
@@ -746,10 +831,10 @@ async def vulnerability_scan(target: str, scan_type: str = "comprehensive") -> S
             f"nmap --script vuln {target}",
             f"whois {target}"
         ]
-    
+
     # Execute all commands in background
     for cmd in scan_commands:
-        process = await asyncio.create_subprocess_shell(
+        await asyncio.create_subprocess_shell(
             f"{cmd} >> {output_file} 2>&1 &",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
@@ -768,23 +853,23 @@ async def vulnerability_scan(target: str, scan_type: str = "comprehensive") -> S
 async def web_enumeration(target: str, enumeration_type: str = "full") -> Sequence[types.TextContent]:
     """
     Perform comprehensive web application discovery and enumeration.
-    
+
     Args:
         target: Target URL (e.g., http://example.com)
         enumeration_type: Type of enumeration (basic, full, aggressive)
-        
+
     Returns:
         List containing TextContent with enumeration results
     """
-    timestamp = asyncio.get_event_loop().time()
-    output_file = f"web_enum_{target.replace('://', '_').replace('/', '_')}_{int(timestamp)}.txt"
-    
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = f"web_enum_{target.replace('://', '_').replace('/', '_')}_{timestamp}.txt"
+
     # Ensure target has protocol
     if not target.startswith(('http://', 'https://')):
         target = f"http://{target}"
-    
+
     enum_commands = []
-    
+
     if enumeration_type == "basic":
         enum_commands = [
             f"nikto -h {target} -Format txt -o {output_file}",
@@ -806,10 +891,10 @@ async def web_enumeration(target: str, enumeration_type: str = "full") -> Sequen
             f"sqlmap --url {target} --batch --random-agent --level 2",
             f"dirb {target} /usr/share/wordlists/dirb/common.txt -o {output_file}_dirb"
         ]
-    
+
     # Execute commands
     for cmd in enum_commands:
-        process = await asyncio.create_subprocess_shell(
+        await asyncio.create_subprocess_shell(
             f"{cmd} >> {output_file} 2>&1 &",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
@@ -828,19 +913,19 @@ async def web_enumeration(target: str, enumeration_type: str = "full") -> Sequen
 async def network_discovery(target: str, discovery_type: str = "comprehensive") -> Sequence[types.TextContent]:
     """
     Perform multi-stage network reconnaissance and discovery.
-    
+
     Args:
         target: Target network (e.g., 192.168.1.0/24) or host
         discovery_type: Type of discovery (quick, comprehensive, stealth)
-        
+
     Returns:
         List containing TextContent with discovery results
     """
-    timestamp = asyncio.get_event_loop().time()
-    output_file = f"network_discovery_{target.replace('/', '_')}_{int(timestamp)}.txt"
-    
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = f"network_discovery_{target.replace('/', '_')}_{timestamp}.txt"
+
     discovery_commands = []
-    
+
     if discovery_type == "quick":
         discovery_commands = [
             f"nmap -sn {target}",
@@ -861,10 +946,10 @@ async def network_discovery(target: str, discovery_type: str = "comprehensive") 
             f"nmap --script default {target}",
             f"ping -c 2 {target}"
         ]
-    
+
     # Execute commands
     for cmd in discovery_commands:
-        process = await asyncio.create_subprocess_shell(
+        await asyncio.create_subprocess_shell(
             f"{cmd} >> {output_file} 2>&1 &",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
@@ -883,16 +968,16 @@ async def network_discovery(target: str, discovery_type: str = "comprehensive") 
 async def exploit_search(search_term: str, search_type: str = "all") -> Sequence[types.TextContent]:
     """
     Search for exploits using searchsploit and other exploit databases.
-    
+
     Args:
         search_term: Term to search for (e.g., "apache", "ssh", "CVE-2021-44228")
         search_type: Type of search (all, web, remote, local, dos)
-        
+
     Returns:
         List containing TextContent with search results
     """
-    timestamp = asyncio.get_event_loop().time()
-    output_file = f"exploit_search_{search_term.replace(' ', '_')}_{int(timestamp)}.txt"
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = f"exploit_search_{search_term.replace(' ', '_')}_{timestamp}.txt"
     
     search_commands = []
     
@@ -948,17 +1033,15 @@ async def exploit_search(search_term: str, search_type: str = "all") -> Sequence
 async def save_output(content: str, filename: Optional[str] = None, category: str = "general") -> Sequence[types.TextContent]:
     """
     Save content to a timestamped file for evidence collection.
-    
+
     Args:
         content: Content to save
         filename: Optional custom filename (without extension)
         category: Category for organizing files (e.g., "scan", "enum", "evidence")
-        
+
     Returns:
         List containing TextContent with save confirmation
     """
-    import datetime
-    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     
     if filename:
@@ -990,17 +1073,15 @@ async def save_output(content: str, filename: Optional[str] = None, category: st
 async def create_report(title: str, findings: str, report_type: str = "markdown") -> Sequence[types.TextContent]:
     """
     Generate a structured report from findings.
-    
+
     Args:
         title: Report title
         findings: Findings content
         report_type: Type of report (markdown, text, json)
-        
+
     Returns:
         List containing TextContent with report content and file location
     """
-    import datetime
-    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_title = "".join(c for c in title if c.isalnum() or c in ('-', '_', ' ')).rstrip()
     report_file = f"report_{safe_title.replace(' ', '_')}_{timestamp}.{report_type}"
@@ -1032,7 +1113,7 @@ This report contains findings from security assessment activities.
 
 ---
 
-**Report generated by BJHunt Alpha**  
+**Report generated by Nexus Automation Framework**  
 *Generated on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}*
 """
         elif report_type == "text":
@@ -1053,11 +1134,10 @@ RECOMMENDATIONS
 
 Review findings and implement appropriate security measures.
 
-Report generated by BJHunt Alpha
+Report generated by Nexus Automation Framework
 Generated on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """
         elif report_type == "json":
-            import json
             report_data = {
                 "title": title,
                 "generated": datetime.datetime.now().isoformat(),
@@ -1087,15 +1167,13 @@ Generated on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 async def file_analysis(filepath: str) -> Sequence[types.TextContent]:
     """
     Analyze a file using various tools (file type, strings, hash).
-    
+
     Args:
         filepath: Path to the file to analyze
-        
+
     Returns:
         List containing TextContent with analysis results
     """
-    import datetime
-    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_filename = "".join(c for c in filepath.split('/')[-1] if c.isalnum() or c in ('-', '_', '.')).rstrip()
     analysis_file = f"file_analysis_{safe_filename}_{timestamp}.txt"
@@ -1145,7 +1223,7 @@ async def file_analysis(filepath: str) -> Sequence[types.TextContent]:
 
 ---
 
-**Analysis completed by BJHunt Alpha**
+**Analysis completed by Nexus Automation Framework**
 """
     
     # Save analysis to file
@@ -1167,17 +1245,14 @@ async def file_analysis(filepath: str) -> Sequence[types.TextContent]:
 async def download_file(url: str, filename: Optional[str] = None) -> Sequence[types.TextContent]:
     """
     Download a file from a URL and save it locally.
-    
+
     Args:
         url: URL to download from
         filename: Optional custom filename
-        
+
     Returns:
         List containing TextContent with download status
     """
-    import datetime
-    import os
-    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     
     if not filename:
@@ -1199,7 +1274,7 @@ async def download_file(url: str, filename: Optional[str] = None) -> Sequence[ty
     try:
         # Download file
         headers = {
-            "User-Agent": "BJHunt Alpha (github.com/modelcontextprotocol/python-sdk)"
+            "User-Agent": "Nexus-Automation-Framework/1.0 (github.com/modelcontextprotocol/python-sdk)"
         }
         
         async with httpx.AsyncClient(
@@ -1247,17 +1322,15 @@ async def download_file(url: str, filename: Optional[str] = None) -> Sequence[ty
 async def spider_website(url: str, depth: int = 2, threads: int = 10) -> Sequence[types.TextContent]:
     """
     Perform comprehensive web crawling and spidering.
-    
+
     Args:
         url: Target URL to spider
         depth: Crawling depth (default: 2)
         threads: Number of concurrent threads (default: 10)
-        
+
     Returns:
         List containing TextContent with spidering results
     """
-    import datetime
-    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_url = url.replace('://', '_').replace('/', '_').replace('.', '_')
     output_dir = f"spider_{safe_url}_{timestamp}"
@@ -1310,16 +1383,14 @@ async def spider_website(url: str, depth: int = 2, threads: int = 10) -> Sequenc
 async def form_analysis(url: str, scan_type: str = "comprehensive") -> Sequence[types.TextContent]:
     """
     Discover and analyze web forms for security testing.
-    
+
     Args:
         url: Target URL to analyze
         scan_type: Type of analysis (basic, comprehensive, aggressive)
-        
+
     Returns:
         List containing TextContent with form analysis results
     """
-    import datetime
-    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_url = url.replace('://', '_').replace('/', '_').replace('.', '_')
     output_file = f"form_analysis_{safe_url}_{timestamp}.txt"
@@ -1380,16 +1451,14 @@ async def form_analysis(url: str, scan_type: str = "comprehensive") -> Sequence[
 async def header_analysis(url: str, include_security: bool = True) -> Sequence[types.TextContent]:
     """
     Analyze HTTP headers for security information and misconfigurations.
-    
+
     Args:
         url: Target URL to analyze
         include_security: Include security header analysis
-        
+
     Returns:
         List containing TextContent with header analysis results
     """
-    import datetime
-    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_url = url.replace('://', '_').replace('/', '_').replace('.', '_')
     output_file = f"header_analysis_{safe_url}_{timestamp}.txt"
@@ -1463,16 +1532,14 @@ async def header_analysis(url: str, include_security: bool = True) -> Sequence[t
 async def ssl_analysis(url: str, port: int = 443) -> Sequence[types.TextContent]:
     """
     Perform SSL/TLS security assessment.
-    
+
     Args:
         url: Target URL to analyze
         port: SSL port (default: 443)
-        
+
     Returns:
         List containing TextContent with SSL analysis results
     """
-    import datetime
-    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_url = url.replace('://', '_').replace('/', '_').replace('.', '_')
     output_file = f"ssl_analysis_{safe_url}_{timestamp}.txt"
@@ -1526,16 +1593,14 @@ async def ssl_analysis(url: str, port: int = 443) -> Sequence[types.TextContent]
 async def subdomain_enum(url: str, enum_type: str = "comprehensive") -> Sequence[types.TextContent]:
     """
     Perform subdomain enumeration using multiple tools.
-    
+
     Args:
         url: Target domain to enumerate
         enum_type: Type of enumeration (basic, comprehensive, aggressive)
-        
+
     Returns:
         List containing TextContent with subdomain enumeration results
     """
-    import datetime
-    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_url = url.replace('://', '_').replace('/', '_').replace('.', '_')
     output_file = f"subdomain_enum_{safe_url}_{timestamp}.txt"
@@ -1603,16 +1668,14 @@ async def subdomain_enum(url: str, enum_type: str = "comprehensive") -> Sequence
 async def web_audit(url: str, audit_type: str = "comprehensive") -> Sequence[types.TextContent]:
     """
     Perform comprehensive web application security audit.
-    
+
     Args:
         url: Target URL to audit
         audit_type: Type of audit (basic, comprehensive, aggressive)
-        
+
     Returns:
         List containing TextContent with audit results
     """
-    import datetime
-    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_url = url.replace('://', '_').replace('/', '_').replace('.', '_')
     output_file = f"web_audit_{safe_url}_{timestamp}.txt"

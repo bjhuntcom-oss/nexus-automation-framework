@@ -1,14 +1,14 @@
 """
-BJHunt Alpha - Health Check System
+Nexus Automation Framework - Health Check System
 
 Comprehensive health check module that validates all services, tools,
 and internal components. Can be run standalone or integrated into the
 MCP server as a diagnostic tool.
 
 Usage:
-    python -m bjhunt_alpha.healthcheck          # Full health check
-    python -m bjhunt_alpha.healthcheck --json   # JSON output
-    python -m bjhunt_alpha.healthcheck --quick  # Quick check only
+    python -m nexus_framework.healthcheck          # Full health check
+    python -m nexus_framework.healthcheck --json   # JSON output
+    python -m nexus_framework.healthcheck --quick  # Quick check only
 """
 
 import asyncio
@@ -99,19 +99,33 @@ def _timed_check(name: str):
     return Timer()
 
 
+def _run_async(coro_fn, *args, **kwargs):
+    """Run a coroutine safely even if a loop is already running."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro_fn(*args, **kwargs))
+
+    new_loop = asyncio.new_event_loop()
+    try:
+        return new_loop.run_until_complete(coro_fn(*args, **kwargs))
+    finally:
+        new_loop.close()
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # 1. CORE MODULE CHECKS
 # ──────────────────────────────────────────────────────────────────────────────
 
 def check_core_imports() -> CheckResult:
-    """Verify all core BJHunt Alpha modules can be imported."""
+    """Verify all core Nexus Automation Framework modules can be imported."""
     with _timed_check("core_imports") as t:
         errors = []
         modules = [
-            "bjhunt_alpha",
-            "bjhunt_alpha.server",
-            "bjhunt_alpha.tools",
-            "bjhunt_alpha.healthcheck",
+            "nexus_framework",
+            "nexus_framework.server",
+            "nexus_framework.tools",
+            "nexus_framework.healthcheck",
         ]
         imported = []
         for mod in modules:
@@ -138,7 +152,7 @@ def check_version() -> CheckResult:
     """Verify package version is set and valid."""
     with _timed_check("version") as t:
         try:
-            from bjhunt_alpha import __version__
+            from nexus_framework import __version__
             parts = __version__.split(".")
             if len(parts) != 3:
                 return CheckResult("version", Status.WARN,
@@ -154,11 +168,11 @@ def check_server_instance() -> CheckResult:
     """Verify MCP server instance is created and configured."""
     with _timed_check("server_instance") as t:
         try:
-            from bjhunt_alpha.server import bjhunt_server
-            name = bjhunt_server.name
-            if name != "bjhunt-alpha":
+            from nexus_framework.server import nexus_server
+            name = nexus_server.name
+            if name != "nexus-automation-framework":
                 return CheckResult("server_instance", Status.WARN,
-                    f"Server name is '{name}', expected 'bjhunt-alpha'",
+                    f"Server name is '{name}', expected 'nexus-automation-framework'",
                     t.elapsed_ms)
             return CheckResult("server_instance", Status.OK,
                 f"Server '{name}' initialized", t.elapsed_ms)
@@ -191,7 +205,7 @@ def check_tool_functions() -> CheckResult:
             "wifi_scan", "hash_crack",
         ]
 
-        import bjhunt_alpha.tools as tools_module
+        import nexus_framework.tools as tools_module
         found = []
         missing = []
 
@@ -219,16 +233,7 @@ def check_tool_registration() -> CheckResult:
     """Verify MCP tool definitions match actual tool functions."""
     with _timed_check("tool_registration") as t:
         try:
-            result = asyncio.get_event_loop().run_until_complete(
-                _check_tool_registration_async()
-            )
-            return CheckResult(
-                "tool_registration", result[0], result[1],
-                t.elapsed_ms, result[2]
-            )
-        except RuntimeError:
-            # No event loop — create one
-            result = asyncio.run(_check_tool_registration_async())
+            result = _run_async(_check_tool_registration_async)
             return CheckResult(
                 "tool_registration", result[0], result[1],
                 t.elapsed_ms, result[2]
@@ -238,7 +243,7 @@ def check_tool_registration() -> CheckResult:
 
 
 async def _check_tool_registration_async():
-    from bjhunt_alpha.server import list_available_tools
+    from nexus_framework.server import list_available_tools
     tools = await list_available_tools()
     tool_names = [t.name for t in tools]
 
@@ -271,7 +276,7 @@ def check_utility_functions() -> CheckResult:
 
         # Test sanitize_credentials
         try:
-            from bjhunt_alpha.tools import sanitize_credentials
+            from nexus_framework.tools import sanitize_credentials
             result = sanitize_credentials("password is secret123", password="secret123")
             if "secret123" in result:
                 errors.append("sanitize_credentials: password not masked")
@@ -283,7 +288,7 @@ def check_utility_functions() -> CheckResult:
 
         # Test check_tool_exists
         try:
-            from bjhunt_alpha.tools import check_tool_exists
+            from nexus_framework.tools import check_tool_exists
             # python should always exist
             if not check_tool_exists("python3") and not check_tool_exists("python"):
                 errors.append("check_tool_exists: python not found")
@@ -292,7 +297,7 @@ def check_utility_functions() -> CheckResult:
 
         # Test is_long_running
         try:
-            from bjhunt_alpha.tools import is_long_running
+            from nexus_framework.tools import is_long_running
             if not is_long_running("nmap -sS target"):
                 errors.append("is_long_running: nmap not detected")
             if is_long_running("echo hello"):
@@ -302,7 +307,7 @@ def check_utility_functions() -> CheckResult:
 
         # Test log_action (should not raise)
         try:
-            from bjhunt_alpha.tools import log_action
+            from nexus_framework.tools import log_action
             log_action("healthcheck_test", status="ok")
         except Exception as e:
             errors.append(f"log_action: {e}")
@@ -325,7 +330,7 @@ def check_session_management() -> CheckResult:
         errors = []
 
         try:
-            from bjhunt_alpha.tools import (
+            from nexus_framework.tools import (
                 ensure_sessions_dir, get_session_path,
                 get_session_metadata_path, list_sessions,
                 save_active_session, load_active_session,
@@ -487,9 +492,9 @@ def check_filesystem() -> CheckResult:
 
         # Required files
         required_files = [
-            "bjhunt_alpha/__init__.py",
-            "bjhunt_alpha/server.py",
-            "bjhunt_alpha/tools.py",
+            "nexus_framework/__init__.py",
+            "nexus_framework/server.py",
+            "nexus_framework/tools.py",
         ]
 
         for f in required_files:
@@ -527,10 +532,10 @@ def check_mcp_protocol() -> CheckResult:
     """Verify MCP protocol handlers are registered."""
     with _timed_check("mcp_protocol") as t:
         try:
-            from bjhunt_alpha.server import bjhunt_server
+            from nexus_framework.server import nexus_server
 
             handlers = {
-                "call_tool": hasattr(bjhunt_server, "request_handlers"),
+                "call_tool": hasattr(nexus_server, "request_handlers"),
                 "list_tools": True,  # We know it's registered via decorator
                 "list_resources": True,
                 "read_resource": True,
@@ -575,7 +580,7 @@ def check_server_routing() -> CheckResult:
     """Verify all tool names in MCP schema can be routed by handle_tool_request."""
     with _timed_check("server_routing") as t:
         try:
-            result = asyncio.run(_check_routing_async())
+            result = _run_async(_check_routing_async)
             return CheckResult("server_routing", result[0], result[1],
                 t.elapsed_ms, result[2])
         except Exception as e:
@@ -583,7 +588,7 @@ def check_server_routing() -> CheckResult:
 
 
 async def _check_routing_async():
-    from bjhunt_alpha.server import list_available_tools, handle_tool_request
+    from nexus_framework.server import list_available_tools, handle_tool_request
 
     tools = await list_available_tools()
     routable = []
@@ -650,7 +655,7 @@ def run_health_check(quick: bool = False) -> HealthReport:
     Returns:
         HealthReport with all results.
     """
-    from bjhunt_alpha import __version__
+    from nexus_framework import __version__
 
     report = HealthReport(
         timestamp=datetime.datetime.now().isoformat(),
@@ -699,7 +704,7 @@ def format_report_text(report: HealthReport) -> str:
 
     lines = []
     lines.append("=" * 60)
-    lines.append("  🎯 BJHunt Alpha — Health Check Report")
+    lines.append("  🎯 Nexus Automation Framework — Health Check Report")
     lines.append("=" * 60)
     lines.append(f"  Timestamp:  {report.timestamp}")
     lines.append(f"  Version:    {report.version}")
@@ -740,7 +745,7 @@ def main():
     """CLI entry point for the health check."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="BJHunt Alpha Health Check")
+    parser = argparse.ArgumentParser(description="Nexus Automation Framework Health Check")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--quick", action="store_true", help="Quick checks only")
     args = parser.parse_args()

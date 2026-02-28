@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Nexus Automation Framework — Red Team Architecture</title>
+<style>
+  :root {
+    --bg:        #020406;
+    --surface:   #080d10;
+    --surface2:  #0d1418;
+    --border:    #1a2830;
+    --accent:    #c8ff00;
+    --accent2:   #00e5ff;
+    --accent3:   #ff3c3c;
+    --muted:     #3a4a52;
+    --text:      #e8eef0;
+    --text2:     #7a9098;
+    --text3:     #4a6068;
+    --font-mono: 'JetBrains Mono','Fira Code','Cascadia Code',monospace;
+    --font-ui:   'Inter','Helvetica Neue',system-ui,sans-serif;
+    --radius:    4px;
+    --glow:      0 0 24px rgba(200,255,0,0.06);
+    --glow2:     0 0 24px rgba(0,229,255,0.06);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Layout ── */
+  .page { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+
+  /* ── Nav ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(2,4,6,0.96);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    padding: 0 32px;
+  }
+  .nav-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 52px;
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.05em;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .nav-brand .icon-brand {
+    width: 28px; height: 28px;
+    border: 1.5px solid var(--accent);
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent);
+    font-size: 14px;
+  }
+  .nav-links {
+    display: flex; gap: 28px; list-style: none;
+  }
+  .nav-links a {
+    color: var(--text2); font-size: 12px; font-family: var(--font-mono);
+    letter-spacing: 0.06em; text-decoration: none;
+    text-transform: uppercase; transition: color 0.15s;
+  }
+  .nav-links a:hover { color: var(--accent); }
+
+  .badge {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 2px 8px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+  }
+
+  /* ── Hero ── */
+  .hero {
+    border-bottom: 1px solid var(--border);
+    padding: 80px 0 60px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; top: -100px; right: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(ellipse, rgba(200,255,0,0.03) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-meta {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .hero-meta::before {
+    content: ''; display: inline-block;
+    width: 24px; height: 1px; background: var(--accent);
+  }
+  .hero h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 600; letter-spacing: -0.02em;
+    line-height: 1.15; margin-bottom: 20px;
+    color: var(--text);
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero-desc {
+    max-width: 640px; color: var(--text2);
+    font-size: 15px; line-height: 1.8; margin-bottom: 36px;
+  }
+  .hero-stats {
+    display: flex; flex-wrap: wrap; gap: 32px;
+  }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat-value {
+    font-family: var(--font-mono); font-size: 22px; font-weight: 700;
+    color: var(--accent);
+  }
+  .stat-label {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  /* ── Section ── */
+  .section { padding: 64px 0; border-bottom: 1px solid var(--border); }
+  .section:last-child { border-bottom: none; }
+
+  .section-header {
+    display: flex; align-items: flex-start; gap: 16px;
+    margin-bottom: 40px;
+  }
+  .section-icon {
+    width: 36px; height: 36px; flex-shrink: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent); font-size: 15px;
+    background: var(--surface);
+    margin-top: 2px;
+  }
+  .section-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .section-sub { color: var(--text2); font-size: 13px; }
+
+  /* ── Cards ── */
+  .cards { display: grid; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .cards-2 { grid-template-columns: repeat(2, 1fr); }
+  .cards-3 { grid-template-columns: repeat(3, 1fr); }
+  .cards-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .card {
+    background: var(--surface); padding: 24px;
+    transition: background 0.15s;
+  }
+  .card:hover { background: var(--surface2); }
+  .card-icon {
+    width: 30px; height: 30px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent2); font-size: 13px;
+    margin-bottom: 14px; background: var(--bg);
+  }
+  .card-title {
+    font-family: var(--font-mono); font-size: 12px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text); margin-bottom: 8px;
+  }
+  .card-body { color: var(--text2); font-size: 13px; line-height: 1.7; }
+
+  /* ── Architecture diagram ── */
+  .arch-diagram {
+    font-family: var(--font-mono); font-size: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px 32px;
+    color: var(--text2); line-height: 2;
+    overflow-x: auto;
+    box-shadow: var(--glow);
+  }
+  .arch-diagram .hl { color: var(--accent); }
+  .arch-diagram .hl2 { color: var(--accent2); }
+  .arch-diagram .hl3 { color: var(--accent3); }
+  .arch-diagram .dim { color: var(--text3); }
+
+  /* ── Flow diagram ── */
+  .flow {
+    display: flex; align-items: stretch; gap: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .flow-step {
+    flex: 1; padding: 24px 20px;
+    border-right: 1px solid var(--border);
+    position: relative;
+  }
+  .flow-step:last-child { border-right: none; }
+  .flow-step::after {
+    content: '→';
+    position: absolute; right: -10px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent); font-size: 16px;
+    z-index: 1; background: var(--surface);
+    padding: 0 4px;
+  }
+  .flow-step:last-child::after { display: none; }
+  .flow-num {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--accent); margin-bottom: 8px;
+  }
+  .flow-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .flow-desc { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+  /* ── Code blocks ── */
+  pre, code {
+    font-family: var(--font-mono);
+  }
+  pre {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 24px;
+    font-size: 12px; color: var(--text2);
+    overflow-x: auto; line-height: 1.8;
+  }
+  .kw { color: #c792ea; }
+  .str { color: #c3e88d; }
+  .cmt { color: var(--text3); font-style: italic; }
+  .num { color: #f78c6c; }
+  .key { color: var(--accent2); }
+  .val { color: var(--accent); }
+
+  /* ── Agent grid ── */
+  .agent-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  }
+  .agent-card {
+    background: var(--surface); padding: 20px;
+    transition: background 0.15s;
+  }
+  .agent-card:hover { background: var(--surface2); }
+  .agent-phase {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .agent-name { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+  .agent-caps { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .agent-caps li {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .agent-caps li::before {
+    content: ''; display: inline-block;
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--muted); flex-shrink: 0;
+  }
+  .agent-caps .cap-active::before { background: var(--accent); }
+
+  /* ── Table ── */
+  table {
+    width: 100%; border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    text-align: left; padding: 10px 16px;
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text2); letter-spacing: 0.06em; text-transform: uppercase;
+    font-weight: 500;
+  }
+  td {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .td-mono { font-family: var(--font-mono); font-size: 12px; }
+
+  /* ── Tags ── */
+  .tag {
+    display: inline-flex; align-items: center;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 2px; padding: 1px 6px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+  }
+  .tag-green { border-color: rgba(200,255,0,0.3); color: var(--accent); background: rgba(200,255,0,0.04); }
+  .tag-blue  { border-color: rgba(0,229,255,0.3); color: var(--accent2); background: rgba(0,229,255,0.04); }
+  .tag-red   { border-color: rgba(255,60,60,0.3);  color: var(--accent3); background: rgba(255,60,60,0.04); }
+  .tag-gray  { border-color: var(--border); color: var(--text3); }
+
+  /* ── Severity ── */
+  .sev { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 11px; }
+  .sev-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .sev-c .sev-dot { background: #ff3c3c; }
+  .sev-h .sev-dot { background: #ff8c00; }
+  .sev-m .sev-dot { background: #ffd700; }
+  .sev-l .sev-dot { background: #4a9eff; }
+  .sev-c { color: #ff3c3c; }
+  .sev-h { color: #ff8c00; }
+  .sev-m { color: #ffd700; }
+  .sev-l { color: #4a9eff; }
+
+  /* ── Timeline ── */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .timeline-item {
+    display: flex; gap: 20px; padding: 0 0 28px 0;
+    position: relative;
+  }
+  .timeline-item:last-child { padding-bottom: 0; }
+  .timeline-left { display: flex; flex-direction: column; align-items: center; width: 36px; flex-shrink: 0; }
+  .timeline-dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--surface);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent2); font-size: 13px; flex-shrink: 0;
+  }
+  .timeline-line {
+    flex: 1; width: 1px; background: var(--border);
+    margin: 4px 0;
+  }
+  .timeline-item:last-child .timeline-line { display: none; }
+  .timeline-content { padding-top: 6px; }
+  .timeline-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .timeline-desc { color: var(--text2); font-size: 13px; line-height: 1.7; }
+
+  /* ── Alert box ── */
+  .alert {
+    border-radius: var(--radius); padding: 14px 18px;
+    font-size: 13px; display: flex; gap: 12px; align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .alert-warn {
+    background: rgba(255,140,0,0.06); border: 1px solid rgba(255,140,0,0.2);
+    color: #ffb347;
+  }
+  .alert-info {
+    background: rgba(0,229,255,0.04); border: 1px solid rgba(0,229,255,0.15);
+    color: var(--accent2);
+  }
+  .alert-danger {
+    background: rgba(255,60,60,0.04); border: 1px solid rgba(255,60,60,0.2);
+    color: var(--accent3);
+  }
+  .alert-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Split layout ── */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .split-3 { grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px; background: var(--border);
+    margin: 32px 0;
+  }
+
+  /* ── Status indicator ── */
+  .status { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .status-ok  { color: var(--accent); }
+  .status-ok .status-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .status-warn { color: #ffd700; }
+  .status-warn .status-dot { background: #ffd700; }
+  .status-err { color: var(--accent3); }
+  .status-err .status-dot { background: var(--accent3); }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border); padding: 28px 32px;
+    background: var(--bg);
+  }
+  .footer-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .footer-left { font-family: var(--font-mono); font-size: 12px; color: var(--text3); }
+  .footer-right { display: flex; gap: 8px; align-items: center; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .cards-3, .cards-4 { grid-template-columns: 1fr 1fr; }
+    .agent-grid { grid-template-columns: 1fr 1fr; }
+    .split { grid-template-columns: 1fr; }
+    .flow { flex-direction: column; }
+    .flow-step::after { content: '↓'; right: auto; top: auto; bottom: -14px; left: 50%; }
+  }
+  @media (max-width: 600px) {
+    .cards-2, .cards-3, .cards-4, .agent-grid { grid-template-columns: 1fr; }
+    nav .nav-links { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     NAV
+═══════════════════════════════════════════ -->
+<nav>
+  <div class="nav-inner">
+    <a class="nav-brand" href="#">
+      <div class="icon-brand">N</div>
+      NEXUS — AF
+    </a>
+    <ul class="nav-links">
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#mcp">MCP</a></li>
+      <li><a href="#agents">Agents</a></li>
+      <li><a href="#strategic">Strategic Brain</a></li>
+      <li><a href="#docker">Docker</a></li>
+      <li><a href="#audit">Audit</a></li>
+    </ul>
+    <div class="badge">v1.1.0-alpha</div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     HERO
+═══════════════════════════════════════════ -->
+<div class="hero">
+  <div class="page">
+    <div class="hero-meta">Red Team Intelligence Platform</div>
+    <h1>Nexus <span>Automation</span> Framework</h1>
+    <p class="hero-desc">
+      MCP server autonome pour opérations offensives autorisées. Architecture multi-agents pilotée par LLM,
+      moteur stratégique déterministe, base de connaissance 317K+ CVEs / 700+ techniques MITRE ATT&CK,
+      déployé sur Kali Linux containerisé.
+    </p>
+    <div class="hero-stats">
+      <div class="stat"><span class="stat-value">53</span><span class="stat-label">MCP Tools</span></div>
+      <div class="stat"><span class="stat-value">15</span><span class="stat-label">Agents</span></div>
+      <div class="stat"><span class="stat-value">317K+</span><span class="stat-label">CVEs</span></div>
+      <div class="stat"><span class="stat-value">700+</span><span class="stat-label">ATT&CK Tech.</span></div>
+      <div class="stat"><span class="stat-value">150+</span><span class="stat-label">Kali Tools</span></div>
+      <div class="stat"><span class="stat-value">8000</span><span class="stat-label">SSE Port</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     1 — ARCHITECTURE GLOBALE
+═══════════════════════════════════════════ -->
+<div class="section" id="architecture">
+  <div class="page">
+    <div class="section-header">
+      <div class="section-icon">◈</div>
+      <div>
+        <div class="section-title">Architecture Globale</div>
+        <div class="section-sub">Comment le LLM pilote le framework via MCP</div>
+      </div>
+    </div>
+
+    <div class="arch-diagram">
+<pre>
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  <span class="hl">LLM CLIENT</span>  (Claude Desktop / Claude CLI / API)                       │
+  │  Le modèle raisonne, sélectionne les tools, interprète les résultats   │
+  └──────────────────────────────┬──────────────────────────────────────────┘
+                                  │  <span class="hl2">Model Context Protocol (MCP)</span>
+                                  │  Transport : SSE  ──  http://host:8000/sse
+                                  │  ou         stdio ──  pipe direct
+                                  ▼
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  <span class="hl">NEXUS MCP SERVER</span>   (nexus_framework/server.py)                       │
+  │                                                                         │
+  │  @nexus_server.call_tool()  ──  routeur if/elif → 53 handlers          │
+  │  @nexus_server.list_tools() ──  manifeste JSON des tools               │
+  │  @nexus_server.list_resources() ── wordlists, sessions, rapports       │
+  │                                                                         │
+  │  Starlette ASGI ──► Lifespan context manager (startup/shutdown)        │
+  │  uvicorn    ──────► event loop asyncio                                  │
+  └──┬───────────────────┬────────────────────┬────────────────────────────┘
+     │                   │                    │
+     ▼                   ▼                    ▼
+  ┌──────────┐   ┌───────────────┐   ┌──────────────────────────────────────┐
+  │ <span class="hl2">TOOLS.PY</span>  │   │ <span class="hl">STRATEGIC</span>     │   │  <span class="hl">MULTI-AGENT SYSTEM</span>                  │
+  │          │   │ <span class="hl">ENGINE</span>        │   │                                      │
+  │ run/sudo │   │               │   │  AgentOrchestrator                   │
+  │ nmap     │   │ BrainEngine   │   │  ├── MessageBus (pub/sub)            │
+  │ nuclei   │   │ AttackGraph   │   │  ├── AgentRegistry                   │
+  │ sqlmap   │   │ Correlation   │   │  └── 15 BaseAgent subclasses         │
+  │ hydra    │   │ Knowledge DB  │   │      Recon, VulnHunter, AttackChain  │
+  │ msfvenom │   │ Orchestrator  │   │      Exploit, Correlation, Evasion   │
+  │ impacket │   │ OPSECManager  │   │      Persistence, AntiForensics      │
+  │ responder│   │ Governance    │   │      SQLi/XSS/SSRF Specialists       │
+  │ bloodhnd │   │ Observability │   │      PostExploit, Reporting...       │
+  └──────────┘   └───────┬───────┘   └──────────────────────────────────────┘
+                          │
+                          ▼
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  <span class="hl3">CONTAINER SECURITY</span>  (container_security.py)                           │
+  │  Kill switch ── VPN monitor ── IDS ── Escape detection ── Audit chain  │
+  └─────────────────────────────────────────────────────────────────────────┘
+</pre>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-header">
+      <div class="section-icon">→</div>
+      <div>
+        <div class="section-title">Flux d'exécution d'un tool MCP</div>
+        <div class="section-sub">Du prompt LLM à l'output terminal</div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">01</div>
+        <div class="flow-title">Raisonnement LLM</div>
+        <div class="flow-desc">Le LLM reçoit le contexte + la liste des 53 tools MCP disponibles. Il décide quel tool invoquer et avec quels arguments.</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">02</div>
+        <div class="flow-title">Appel MCP</div>
+        <div class="flow-desc">Le client envoie un <code>call_tool</code> JSON via SSE ou stdio au server. Le serveur route vers le handler approprié.</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">03</div>
+        <div class="flow-title">Exécution</div>
+        <div class="flow-desc">Selon le tool : <strong>subprocess</strong> (run/sudo), <strong>agent_system.execute()</strong>, ou méthode du <strong>brain_engine</strong>.</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">04</div>
+        <div class="flow-title">Normalisation</div>
+        <div class="flow-desc"><code>NexusResponse</code> + <code>auto_parse()</code> structure l'output brut en markdown enrichi avec findings, severity, metadata.</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">05</div>
+        <div class="flow-title">Feedback LLM</div>
+        <div class="flow-desc">Le texte formaté est retourné au LLM qui l'analyse, tire des conclusions et décide le prochain tool à appeler.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     2 — MCP CONFIGURATION
+═══════════════════════════════════════════ -->
+<div class="section" id="mcp">
+  <div class="page">
+    <div class="section-header">
+      <div class="section-icon">⟡</div>
+      <div>
+        <div class="section-title">Configuration MCP</div>
+        <div class="section-sub">Connexion Claude Desktop / Claude CLI</div>
+      </div>
+    </div>
+
+    <div class="split">
+      <div>
+        <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">
+          Le framework supporte deux transports MCP. En production Docker, utilisez <strong>SSE</strong>.<br>
+          Pour debug local (sans Docker), utilisez <strong>stdio</strong>.
+        </p>
+
+        <div class="divider"></div>
+        <div style="margin-bottom:8px;font-family:var(--font-mono);font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;">
+          Claude Desktop — claude_desktop_config.json
+        </div>
+        <pre><span class="dim">// ~/.config/claude/claude_desktop_config.json</span>
+{
+  <span class="key">"mcpServers"</span>: {
+    <span class="key">"nexus"</span>: {
+      <span class="key">"url"</span>: <span class="str">"http://localhost:8000/sse"</span>,
+      <span class="key">"transport"</span>: <span class="str">"sse"</span>
+    }
+  }
+}</pre>
+
+        <div style="margin:20px 0 8px;font-family:var(--font-mono);font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;">
+          Claude CLI — stdio (développement)
+        </div>
+        <pre><span class="dim">// .claude/mcp.json</span>
+{
+  <span class="key">"mcpServers"</span>: {
+    <span class="key">"nexus"</span>: {
+      <span class="key">"command"</span>: <span class="str">"docker"</span>,
+      <span class="key">"args"</span>: [
+        <span class="str">"exec"</span>, <span class="str">"-i"</span>,
+        <span class="str">"nexus-automation-framework"</span>,
+        <span class="str">"python"</span>, <span class="str">"-m"</span>,
+        <span class="str">"nexus_framework.server"</span>,
+        <span class="str">"--transport"</span>, <span class="str">"stdio"</span>
+      ]
+    }
+  }
+}</pre>
+      </div>
+
+      <div>
+        <div style="margin-bottom:8px;font-family:var(--font-mono);font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:0.1em;">
+          Démarrage Docker
+        </div>
+        <pre><span class="dim"># Build + démarrage</span>
+docker compose up -d --build
+
+<span class="dim"># Vérifier la santé</span>
+docker inspect nexus-automation-framework \
+  --format '{{.State.Health.Status}}'
+
+<span class="dim"># Logs en temps réel</span>
+docker logs -f nexus-automation-framework
+
+<span class="dim"># Stack monitoring optionnelle</span>
+docker compose --profile monitoring up -d
+<span class="dim"># → Prometheus: http://localhost:9090</span>
+<span class="dim"># → Grafana:    http://localhost:3000</span></pre>
+
+        <div style="margin:20px 0 8px;font-family:var(--font-mono);font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:0.1em;">
+          Variables d'environnement clés
+        </div>
+        <table>
+          <thead><tr><th>Variable</th><th>Défaut</th><th>Rôle</th></tr></thead>
+          <tbody>
+            <tr><td class="td-mono">NEXUS_GOVERNANCE_KEY</td><td class="td-mono" style="color:var(--accent3)">hardcodé</td><td style="color:var(--text2);font-size:12px;">Clé HMAC audit chain</td></tr>
+            <tr><td class="td-mono">NEXUS_TRANSPORT</td><td class="td-mono">sse</td><td style="color:var(--text2);font-size:12px;">sse ou stdio</td></tr>
+            <tr><td class="td-mono">NEXUS_PORT</td><td class="td-mono">8000</td><td style="color:var(--text2);font-size:12px;">Port HTTP/SSE</td></tr>
+            <tr><td class="td-mono">NEXUS_KILL_SWITCH_ENABLED</td><td class="td-mono">true</td><td style="color:var(--text2);font-size:12px;">Coupe le container si compromis</td></tr>
+            <tr><td class="td-mono">NEXUS_VPN_KILL_SWITCH_ONLY</td><td class="td-mono">true</td><td style="color:var(--text2);font-size:12px;">Kill switch déclenché si VPN déconnecté uniquement</td></tr>
+            <tr><td class="td-mono">NEXUS_HOST_ONLY_MODE</td><td class="td-mono">true</td><td style="color:var(--text2);font-size:12px;">Restreint les connexions au localhost</td></tr>
+            <tr><td class="td-mono">NEXUS_DB_PATH</td><td class="td-mono">/app/knowledge.db</td><td style="color:var(--text2);font-size:12px;">Base CVE/ATT&CK SQLite</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="margin-bottom:16px;font-family:var(--font-mono);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;">
+      Tools MCP exposés — 53 au total
+    </div>
+    <div class="cards cards-4">
+      <div class="card">
+        <div class="card-title">Core Execution</div>
+        <div class="card-body" style="font-family:var(--font-mono);font-size:11px;color:var(--text3);line-height:2;">
+          run · sudo · fetch · resources<br>background_jobs · health_check
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Scanning</div>
+        <div class="card-body" style="font-family:var(--font-mono);font-size:11px;color:var(--text3);line-height:2;">
+          vulnerability_scan · web_enum<br>network_discovery · exploit_search
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Web App</div>
+        <div class="card-body" style="font-family:var(--font-mono);font-size:11px;color:var(--text3);line-height:2;">
+          spider_website · form_analysis<br>header_analysis · ssl_analysis<br>subdomain_enum · web_audit
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Active Directory</div>
+        <div class="card-body" style="font-family:var(--font-mono);font-size:11px;color:var(--text3);line-height:2;">
+          impacket_attack · netexec_attack<br>bloodhound_collect · responder_start
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Exploitation</div>
+        <div class="card-body" style="font-family:var(--font-mono);font-size:11px;color:var(--text3);line-height:2;">
+          msfvenom_payload · metasploit_handler<br>reverse_shell_listener · chisel_tunnel<br>hash_crack · wifi_scan
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Strategic Engine</div>
+        <div class="card-body" style="font-family:var(--font-mono);font-size:11px;color:var(--text3);line-height:2;">
+          strategic_init · strategic_step<br>strategic_status · knowledge_query
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Multi-Agent</div>
+        <div class="card-body" style="font-family:var(--font-mono);font-size:11px;color:var(--text3);line-height:2;">
+          agent_execute · agent_workflow<br>agent_status · agent_intel
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Security</div>
+        <div class="card-body" style="font-family:var(--font-mono);font-size:11px;color:var(--text3);line-height:2;">
+          kill_switch · security_status<br>security_validate_command<br>vpn_security_config · payload_get
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     3 — MULTI-AGENT SYSTEM
+═══════════════════════════════════════════ -->
+<div class="section" id="agents">
+  <div class="page">
+    <div class="section-header">
+      <div class="section-icon">◌</div>
+      <div>
+        <div class="section-title">Multi-Agent System</div>
+        <div class="section-sub">Supervisor Pattern — 15 agents spécialisés, bus de message async, orchestration par capacité</div>
+      </div>
+    </div>
+
+    <div class="alert alert-info">
+      <div class="alert-icon">ℹ</div>
+      <div>
+        <strong>Comment le LLM utilise les agents :</strong> Le LLM appelle <code>agent_execute</code> en précisant une <em>capability</em> (ex: <code>passive_recon</code>, <code>vuln_assess</code>, <code>find_attack_path</code>). L'<code>AgentOrchestrator</code> trouve l'agent capable, lui délègue la tâche via <code>agent.execute()</code>, et retourne le résultat structuré. Pour des workflows complets, <code>agent_workflow</code> enchaîne plusieurs étapes en injectant les résultats précédents.
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px;">
+      <div class="arch-diagram">
+<pre>
+  <span class="hl">LLM</span>  →  agent_execute("passive_recon", {target: "example.com"})
+           │
+           ▼
+  <span class="hl2">AgentSystem.execute()</span>          <span class="dim">← facade publique, init lazy au premier appel</span>
+           │
+           ▼
+  <span class="hl2">AgentOrchestrator.execute_task()</span>
+    ├── AgentRegistry.find_by_capability("passive_recon")  <span class="dim">← index par cap</span>
+    ├── Sélection agent : READY + charge minimale
+    └── agent.execute("passive_recon", params)
+              │
+              ▼
+        <span class="hl">ReconAgent._execute_task()</span>    <span class="dim">← logique métier (nmap, subfinder...)</span>
+              │
+              ▼
+        result dict  →  <span class="hl">AgentOrchestrator</span>  →  <span class="hl">LLM</span>  (via MCP TextContent)
+              │
+              ▼  <span class="dim">(optionnel)</span>
+        <span class="hl2">MessageBus.publish("topic:findings")</span>
+              └── ReconAgent, VulnHunter, CorrelationBrain, ReportingAgent reçoivent
+</pre>
+      </div>
+    </div>
+
+    <div class="agent-grid">
+
+      <div class="agent-card">
+        <div class="agent-phase">Phase 1 — Reco</div>
+        <div class="agent-name">Reconnaissance Agent</div>
+        <ul class="agent-caps">
+          <li class="cap-active">passive_recon</li>
+          <li class="cap-active">port_scan</li>
+          <li class="cap-active">service_enum</li>
+          <li class="cap-active">infrastructure_detect</li>
+        </ul>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-phase">Phase 1 — Vuln</div>
+        <div class="agent-name">VulnHunter Agent</div>
+        <ul class="agent-caps">
+          <li class="cap-active">vuln_assess</li>
+          <li class="cap-active">rce_hunt</li>
+          <li class="cap-active">auto_scan</li>
+          <li class="cap-active">cve_lookup</li>
+        </ul>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-phase">Phase 1 — Graph</div>
+        <div class="agent-name">AttackChain Agent</div>
+        <ul class="agent-caps">
+          <li class="cap-active">build_attack_graph</li>
+          <li class="cap-active">find_attack_path</li>
+          <li class="cap-active">escalation_chains</li>
+        </ul>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-phase">Phase 1 — Exploit</div>
+        <div class="agent-name">Exploit Agent</div>
+        <ul class="agent-caps">
+          <li class="cap-active">exploit_plan</li>
+          <li class="cap-active">payload_select</li>
+          <li class="cap-active">exploit_execute</li>
+        </ul>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-phase">Phase 1 — Intel</div>
+        <div class="agent-name">CorrelationBrain Agent</div>
+        <ul class="agent-caps">
+          <li class="cap-active">correlate_findings</li>
+          <li class="cap-active">prioritize_targets</li>
+          <li class="cap-active">intelligence_brief</li>
+        </ul>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-phase">Phase 1 — OPSEC</div>
+        <div class="agent-name">Evasion Agent</div>
+        <ul class="agent-caps">
+          <li class="cap-active">stealth_check</li>
+          <li class="cap-active">waf_detect</li>
+          <li class="cap-active">evasion_suggest</li>
+        </ul>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-phase">Phase 2 — Persistence</div>
+        <div class="agent-name">Persistence Agent</div>
+        <ul class="agent-caps">
+          <li class="cap-active">persistence_plan</li>
+          <li class="cap-active">backdoor_generate</li>
+          <li class="cap-active">persistence_verify</li>
+          <li class="cap-active">persistence_cleanup</li>
+        </ul>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-phase">Phase 2 — Web</div>
+        <div class="agent-name">SQLi / XSS / SSRF Specialists</div>
+        <ul class="agent-caps">
+          <li class="cap-active">sqli_detect / sqli_exploit</li>
+          <li class="cap-active">xss_detect / xss_exploit</li>
+          <li class="cap-active">ssrf_detect / ssrf_exploit</li>
+          <li class="cap-active">form_audit / api_audit</li>
+        </ul>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-phase">Phase 2 — Post</div>
+        <div class="agent-name">PostExploit Agent</div>
+        <ul class="agent-caps">
+          <li class="cap-active">post_exploit_enum</li>
+          <li class="cap-active">credential_harvest</li>
+          <li class="cap-active">lateral_movement</li>
+          <li class="cap-active">privesc_check</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="split">
+      <div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">Infrastructure agents</div>
+        <div class="arch-diagram" style="font-size:11px;">
+<pre>
+  <span class="hl2">MessageBus</span>
+    ├── subscribe(agent_id, "topic:findings")
+    ├── subscribe(agent_id, "topic:alerts")
+    ├── subscribe(agent_id, "topic:exploitation")
+    └── subscribe(agent_id, "topic:vulns")
+
+  <span class="hl">Types de messages</span>
+    TASK      → assignation de tâche
+    RESULT    → résultat d'exécution
+    EVENT     → notification d'événement
+    QUERY     → requête d'information
+    RESPONSE  → réponse à query
+    COMMAND   → contrôle (pause/resume/stop)
+    HEARTBEAT → health check inter-agent
+    ALERT     → anomalie sécurité
+
+  <span class="hl">AgentRegistry</span>
+    ├── _capability_index: {cap → [agent_ids]}
+    ├── _category_index:   {cat → [agent_ids]}
+    └── _health_status:    {agent_id → {ok/fail}}
+</pre>
+        </div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">Exemple workflow agent_workflow</div>
+        <pre><span class="dim">// Appel MCP : agent_workflow</span>
+{
+  <span class="key">"name"</span>: <span class="str">"full_pentest"</span>,
+  <span class="key">"steps"</span>: [
+    {
+      <span class="key">"capability"</span>: <span class="str">"passive_recon"</span>,
+      <span class="key">"params"</span>: {<span class="key">"target"</span>: <span class="str">"example.com"</span>}
+    },
+    {
+      <span class="key">"capability"</span>: <span class="str">"vuln_assess"</span>,
+      <span class="key">"params"</span>: {},
+      <span class="key">"depends_on"</span>: [<span class="num">0</span>]
+      <span class="dim">// dep_0_result injecté auto</span>
+    },
+    {
+      <span class="key">"capability"</span>: <span class="str">"find_attack_path"</span>,
+      <span class="key">"params"</span>: {},
+      <span class="key">"depends_on"</span>: [<span class="num">0</span>, <span class="num">1</span>]
+    },
+    {
+      <span class="key">"capability"</span>: <span class="str">"intelligence_brief"</span>,
+      <span class="key">"params"</span>: {},
+      <span class="key">"depends_on"</span>: [<span class="num">2</span>]
+    }
+  ]
+}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     4 — STRATEGIC BRAIN ENGINE
+═══════════════════════════════════════════ -->
+<div class="section" id="strategic">
+  <div class="page">
+    <div class="section-header">
+      <div class="section-icon">◎</div>
+      <div>
+        <div class="section-title">Strategic Brain Engine</div>
+        <div class="section-sub">Moteur décisionnel déterministe — Machine à états + Bayes + Attack Graph</div>
+      </div>
+    </div>
+
+    <div class="split">
+      <div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">Machine à états offensive</div>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-left"><div class="timeline-dot">R</div><div class="timeline-line"></div></div>
+            <div class="timeline-content">
+              <div class="timeline-title">RECONNAISSANCE</div>
+              <div class="timeline-desc">Subdomain enum, DNS, port scan, service fingerprinting, OSINT passif</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-left"><div class="timeline-dot">E</div><div class="timeline-line"></div></div>
+            <div class="timeline-content">
+              <div class="timeline-title">ENUMERATION</div>
+              <div class="timeline-desc">Deep service enum, AD enum (LDAP/SMB/WinRM), web crawl, login panels</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-left"><div class="timeline-dot">V</div><div class="timeline-line"></div></div>
+            <div class="timeline-content">
+              <div class="timeline-title">VULN ASSESSMENT</div>
+              <div class="timeline-desc">Cross-référence 317K CVEs, nuclei templates, CVSS scoring, exploitabilité</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-left"><div class="timeline-dot">X</div><div class="timeline-line"></div></div>
+            <div class="timeline-content">
+              <div class="timeline-title">EXPLOITATION</div>
+              <div class="timeline-desc">Sélection payload optimal, exécution exploit, établissement accès initial</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-left"><div class="timeline-dot">P</div><div class="timeline-line"></div></div>
+            <div class="timeline-content">
+              <div class="timeline-title">POST-EXPLOITATION</div>
+              <div class="timeline-desc">Privilege escalation, credential harvest, lateral movement, pivot</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-left"><div class="timeline-dot">T</div><div class="timeline-line"></div></div>
+            <div class="timeline-content">
+              <div class="timeline-title">COVERING TRACKS</div>
+              <div class="timeline-desc">Log cleanup, timestamp forge, secure delete, identity rotation</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">Composants strategiques</div>
+        <div class="cards cards-2" style="margin-bottom:16px;">
+          <div class="card">
+            <div class="card-title">Brain Engine</div>
+            <div class="card-body">Rule engine + Bayesian risk model. Décide la prochaine action selon l'état courant, le risk_tolerance et le stealth_requirement.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Attack Graph</div>
+            <div class="card-body">NetworkX DiGraph pondéré. Pathfinding optimal MITRE ATT&CK. Chaîne d'escalade minor→critical.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Correlation Engine</div>
+            <div class="card-body">Normalise les outputs de 20+ tools (PLAIN_TEXT/JSON/XML/CSV). Déduplique, score, agrège les findings.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Knowledge DB</div>
+            <div class="card-body">SQLite WAL 64MB cache. 317K CVEs, 700 ATT&CK tech, 94 service profiles, 50 exploit patterns, 40 evasion patterns, 102 workflow rules.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">OPSEC Manager</div>
+            <div class="card-body">Scope enforcement (whitelist targets), stealth level check, détection de dépassement de périmètre.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Governance</div>
+            <div class="card-body">RBAC (Viewer/Analyst/Operator/Manager/Admin/System). Audit chain HMAC-SHA256 chainé. Approval workflow. Multi-tenant.</div>
+          </div>
+        </div>
+
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Utilisation via MCP</div>
+        <pre><span class="dim"># 1. Initialiser une opération strategique</span>
+strategic_init(
+  target_scope=["192.168.1.0/24", "example.com"],
+  objectives=["initial_access", "data_exfil"],
+  stealth=<span class="num">0.8</span>  <span class="dim"># 0.0=bruyant 1.0=fantôme</span>
+)
+<span class="dim"># → retourne operation_id: op_20260228_143000</span>
+
+<span class="dim"># 2. Exécuter la prochaine étape strategique</span>
+strategic_step(operation_id=<span class="str">"op_20260228_143000"</span>)
+<span class="dim"># → Brain décide, soumet tâches à l'orchestrator</span>
+
+<span class="dim"># 3. Monitorer</span>
+strategic_status(operation_id=<span class="str">"op_20260228_143000"</span>)
+
+<span class="dim"># 4. Interroger la knowledge base</span>
+knowledge_query(
+  query_type=<span class="str">"auto_analyze"</span>,
+  query=<span class="str">"apache 2.4.49"</span>
+)
+<span class="dim"># → CVEs, ATT&CK techs, exploit patterns</span></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     5 — DOCKER & DÉPLOIEMENT
+═══════════════════════════════════════════ -->
+<div class="section" id="docker">
+  <div class="page">
+    <div class="section-header">
+      <div class="section-icon">□</div>
+      <div>
+        <div class="section-title">Infrastructure Docker</div>
+        <div class="section-sub">Kali Linux rolling — 5 layers — 150+ outils — Volumes persistants</div>
+      </div>
+    </div>
+
+    <div class="split">
+      <div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">Layers Dockerfile</div>
+        <table>
+          <thead><tr><th>#</th><th>Layer</th><th>Contenu</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="td-mono" style="color:var(--accent);">L1</td>
+              <td style="font-size:12px;">APT System</td>
+              <td style="font-size:12px;color:var(--text2);">Base + 150 outils Kali en 1 transaction (nmap, metasploit, hydra, aircrack-ng, bloodhound.py, impacket, testssl.sh…)</td>
+            </tr>
+            <tr>
+              <td class="td-mono" style="color:var(--accent);">L2</td>
+              <td style="font-size:12px;">Go Tools</td>
+              <td style="font-size:12px;color:var(--text2);">nuclei, subfinder, httpx, katana, waybackurls, hakrawler, gospider, dalfox, interactsh (non-fatals)</td>
+            </tr>
+            <tr>
+              <td class="td-mono" style="color:var(--accent);">L3</td>
+              <td style="font-size:12px;">Python venv</td>
+              <td style="font-size:12px;color:var(--text2);">requirements.txt + pwntools, droopescan, dnsgen dans /app/venv</td>
+            </tr>
+            <tr>
+              <td class="td-mono" style="color:var(--accent);">L4</td>
+              <td style="font-size:12px;">App Code</td>
+              <td style="font-size:12px;color:var(--text2);">nexus_framework/, scripts/, tests/ — séparé pour cache optimal</td>
+            </tr>
+            <tr>
+              <td class="td-mono" style="color:var(--accent);">L5</td>
+              <td style="font-size:12px;">Runtime</td>
+              <td style="font-size:12px;color:var(--text2);">Dirs, sudo, rockyou.txt gunzip, ENV vars, HEALTHCHECK, EXPOSE 8000</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top:20px;font-family:var(--font-mono);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">Volumes persistants</div>
+        <table>
+          <thead><tr><th>Volume</th><th>Path container</th><th>Rôle</th></tr></thead>
+          <tbody>
+            <tr><td class="td-mono">./data</td><td class="td-mono">/app/data</td><td style="font-size:12px;color:var(--text2);">Données knowledge engine</td></tr>
+            <tr><td class="td-mono">./loot</td><td class="td-mono">/app/loot</td><td style="font-size:12px;color:var(--text2);">Credentials, dumps, captures</td></tr>
+            <tr><td class="td-mono">./sessions</td><td class="td-mono">/app/sessions</td><td style="font-size:12px;color:var(--text2);">Sessions pentests persistantes</td></tr>
+            <tr><td class="td-mono">./reports</td><td class="td-mono">/app/reports</td><td style="font-size:12px;color:var(--text2);">Rapports générés</td></tr>
+            <tr><td class="td-mono">./knowledge.db</td><td class="td-mono">/app/knowledge.db</td><td style="font-size:12px;color:var(--text2);">SQLite 550MB CVE/ATT&CK</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">Network & Services optionnels</div>
+        <div class="arch-diagram" style="font-size:11px;">
+<pre>
+  subnet: <span class="hl">172.20.0.0/16</span>  (nexus-network bridge)
+
+  ┌── nexus-automation-framework  :8000  ←── <span class="hl">MCP SSE</span>
+  │
+  ├── prometheus    :9090  <span class="dim">--profile monitoring</span>
+  ├── grafana       :3000  <span class="dim">--profile monitoring</span>
+  ├── redis         :6379  <span class="dim">--profile distributed</span>
+  └── postgres      :5432  <span class="dim">--profile enterprise</span>
+
+  <span class="hl">Health check</span> (Docker + Compose)
+    CMD: python -m nexus_framework.healthcheck --quick --json
+    interval: 30s  timeout: 15s  retries: 3  start_period: 40s
+
+    13 catégories de checks :
+    imports · version · server · tools · MCP · utils
+    sessions · deps Python · outils Kali · filesystem
+    protocol · network · routing
+</pre>
+        </div>
+
+        <div style="margin-top:16px;font-family:var(--font-mono);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Container Security Engine</div>
+        <div class="cards cards-2">
+          <div class="card">
+            <div class="card-title">Kill Switch</div>
+            <div class="card-body" style="font-size:12px;">Envoie SIGKILL à PID 1 (container shutdown) si menace détectée. Configurable : VPN-only ou global.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">IDS / Escape</div>
+            <div class="card-body" style="font-size:12px;">19 signatures d'escape (docker.sock, /proc/root, nsenter, cgroup…). Whitelist 50+ outils légitimes.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">VPN Monitor</div>
+            <div class="card-body" style="font-size:12px;">14 plages VPN providers (NordVPN, Mullvad, ProtonVPN…). Kill switch si VPN drop detected.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Audit Chain</div>
+            <div class="card-body" style="font-size:12px;">HMAC-SHA256 chainé sur chaque event. Vérification intégrité de la chaîne complète.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     6 — AUDIT & CORRECTIONS
+═══════════════════════════════════════════ -->
+<div class="section" id="audit">
+  <div class="page">
+    <div class="section-header">
+      <div class="section-icon">!</div>
+      <div>
+        <div class="section-title">Rapport d'Audit & Corrections</div>
+        <div class="section-sub">Bugs identifiés, corrections appliquées, limitations architecturales</div>
+      </div>
+    </div>
+
+    <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;">
+      Bugs corrigés dans cette session
+    </div>
+
+    <table style="margin-bottom:32px;">
+      <thead>
+        <tr>
+          <th style="width:8%">ID</th>
+          <th style="width:16%">Fichier</th>
+          <th style="width:16%">Localisation</th>
+          <th style="width:35%">Problème</th>
+          <th>Correction</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="sev sev-c"><span class="sev-dot"></span>C1</span></td>
+          <td class="td-mono" style="font-size:11px;">agents/base.py</td>
+          <td class="td-mono" style="font-size:11px;">L490</td>
+          <td style="font-size:12px;color:var(--text2);"><code>asyncio.get_event_loop().create_future()</code> — déprécié Python 3.10, RuntimeError en 3.12+ si aucun event loop courant</td>
+          <td style="font-size:12px;"><span class="tag tag-green">Fixed</span> → <code>asyncio.get_running_loop()</code></td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-h"><span class="sev-dot"></span>H1</span></td>
+          <td class="td-mono" style="font-size:11px;">strategic/governance.py</td>
+          <td class="td-mono" style="font-size:11px;">L948</td>
+          <td style="font-size:12px;color:var(--text2);">Duplicate <code>GovernanceManager</code> avec une clé HMAC <em>différente</em> de celle de <code>__init__.py</code>. Instance morte jamais utilisée par le serveur — confusion et gaspillage mémoire</td>
+          <td style="font-size:12px;"><span class="tag tag-green">Fixed</span> → ligne supprimée</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-h"><span class="sev-dot"></span>H2</span></td>
+          <td class="td-mono" style="font-size:11px;">strategic/__init__.py</td>
+          <td class="td-mono" style="font-size:11px;">L44</td>
+          <td style="font-size:12px;color:var(--text2);">Clé governance hardcodée <code>"nexus-framework-production-key"</code> — ignorait la variable d'env <code>NEXUS_GOVERNANCE_KEY</code> du docker-compose</td>
+          <td style="font-size:12px;"><span class="tag tag-green">Fixed</span> → <code>os.environ.get("NEXUS_GOVERNANCE_KEY", ...)</code></td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-h"><span class="sev-dot"></span>H3</span></td>
+          <td class="td-mono" style="font-size:11px;">server.py</td>
+          <td class="td-mono" style="font-size:11px;">L1847</td>
+          <td style="font-size:12px;color:var(--text2);"><code>@app.on_event("startup"/"shutdown")</code> déprécié depuis Starlette 0.21. Génère DeprecationWarning à chaque démarrage</td>
+          <td style="font-size:12px;"><span class="tag tag-green">Fixed</span> → <code>@asynccontextmanager lifespan()</code></td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-h"><span class="sev-dot"></span>H4</span></td>
+          <td class="td-mono" style="font-size:11px;">server.py</td>
+          <td class="td-mono" style="font-size:11px;">lifespan</td>
+          <td style="font-size:12px;color:var(--text2);"><code>agent_system.initialize()</code> jamais appelé au démarrage — premier appel agent toujours lent (lazy init) + agents non pré-chargés en mémoire</td>
+          <td style="font-size:12px;"><span class="tag tag-green">Fixed</span> → <code>await agent_system.initialize()</code> dans lifespan startup</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-m"><span class="sev-dot"></span>M1</span></td>
+          <td class="td-mono" style="font-size:11px;">Dockerfile</td>
+          <td class="td-mono" style="font-size:11px;">L57</td>
+          <td style="font-size:12px;color:var(--text2);"><code>github.com/tomnomnom/hacks/hakrawler@latest</code> — mauvais module Go path, téléchargement silencieusement raté (|| true)</td>
+          <td style="font-size:12px;"><span class="tag tag-green">Fixed</span> → <code>github.com/hakluke/hakrawler@latest</code></td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-m"><span class="sev-dot"></span>M2</span></td>
+          <td class="td-mono" style="font-size:11px;">Dockerfile</td>
+          <td class="td-mono" style="font-size:11px;">L74-80</td>
+          <td style="font-size:12px;color:var(--text2);">Double installation de 8 packages (networkx, numpy, scipy, xmltodict, psutil, PyJWT, cryptography, prometheus-client) déjà dans requirements.txt + installation inutile de <code>uv</code></td>
+          <td style="font-size:12px;"><span class="tag tag-green">Fixed</span> → pip install dédupliqué</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-m"><span class="sev-dot"></span>M3</span></td>
+          <td class="td-mono" style="font-size:11px;">Dockerfile</td>
+          <td class="td-mono" style="font-size:11px;">L47-48</td>
+          <td style="font-size:12px;color:var(--text2);">pwntools pip install sans ses dépendances système (<code>libffi-dev</code>, <code>libssl-dev</code>, <code>libcapstone-dev</code>, <code>binutils</code>) → install partielle ou échec silencieux</td>
+          <td style="font-size:12px;"><span class="tag tag-green">Fixed</span> → libs ajoutées au layer APT</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;">
+      Limitations architecturales connues (non corrigées — par conception ou hors scope)
+    </div>
+
+    <div class="cards cards-2">
+      <div class="card">
+        <div class="card-title">Agents — Logique Déterministe</div>
+        <div class="card-body">Les agents wrappent des outils CLI déterministes. Ils ne font pas appel à un LLM interne. C'est le LLM <em>externe</em> (Claude via MCP) qui raisonne. L'architecture "Supervisor" est correcte pour ce cas d'usage.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Knowledge DB — Connexion</div>
+        <div class="card-body">SQLite ouvert et fermé à chaque <code>query_knowledge()</code>. Pas de pool de connexions. Pour la fréquence actuelle d'appels, acceptable. À refactorer si usage haute fréquence.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">SSE — Pas d'authentification</div>
+        <div class="card-body">L'endpoint <code>/sse</code> est ouvert sans token. En production, il faut un reverse proxy (nginx) avec auth header ou réseau privé isolé. Le mode <code>NEXUS_HOST_ONLY_MODE</code> atténue partiellement.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Session History Dead Code</div>
+        <div class="card-body">La liste <code>session.history</code> n'est jamais alimentée par les tool calls. La structure existe mais reste vide en permanence. Cosmétique, pas fonctionnel.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Tools partiellement implémentés</div>
+        <div class="card-body"><code>impacket_attack()</code>, <code>hash_crack()</code>, <code>wifi_scan()</code> retournent des hints de commande au lieu d'exécuter. <code>reverse_shell_listener()</code> génère des payloads mais ne démarre pas le listener.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">~30% tools non installés</div>
+        <div class="card-body">Environ 30-40% des tools référencés dans le code ne sont pas garantis présents sur kali-rolling à la date de build. L'option <code>--fix-missing</code> sur apt masque les échecs silencieusement.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;">
+      Robustesse de l'intégration agents-LLM — Évaluation
+    </div>
+
+    <table>
+      <thead><tr><th>Critère</th><th>Statut</th><th>Détails</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="font-size:13px;">Le LLM peut invoquer les agents via MCP</td>
+          <td><span class="status status-ok"><span class="status-dot"></span>OK</span></td>
+          <td style="font-size:12px;color:var(--text2);"><code>agent_execute</code>, <code>agent_workflow</code>, <code>agent_status</code>, <code>agent_intel</code> exposés et routés</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;">Initialisation agents au démarrage</td>
+          <td><span class="status status-ok"><span class="status-dot"></span>Fixé</span></td>
+          <td style="font-size:12px;color:var(--text2);">Ajout <code>await agent_system.initialize()</code> dans lifespan startup — les 15 agents sont prêts avant le premier MCP call</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;">MessageBus async correct</td>
+          <td><span class="status status-ok"><span class="status-dot"></span>Fixé</span></td>
+          <td style="font-size:12px;color:var(--text2);">get_running_loop() corrigé — fonctionne correctement dans le contexte asyncio de uvicorn</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;">Routing par capacité</td>
+          <td><span class="status status-ok"><span class="status-dot"></span>OK</span></td>
+          <td style="font-size:12px;color:var(--text2);">AgentRegistry._capability_index permet sélection automatique. Load balancing par tâches complétées.</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;">Workflows multi-étapes</td>
+          <td><span class="status status-ok"><span class="status-dot"></span>OK</span></td>
+          <td style="font-size:12px;color:var(--text2);">execute_workflow() injecte dep_{i}_result dans les params des étapes suivantes — dépendances respectées</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;">Mémoire persistante agents</td>
+          <td><span class="status status-warn"><span class="status-dot"></span>Limité</span></td>
+          <td style="font-size:12px;color:var(--text2);">task_history deque(maxlen=100) en mémoire. Pas de persistence entre restarts. Pas de vector store.</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;">Agents avec LLM propre</td>
+          <td><span class="status status-warn"><span class="status-dot"></span>Non</span></td>
+          <td style="font-size:12px;color:var(--text2);">Les agents sont déterministes. Le LLM unique (Claude) est le seul "cerveau" — c'est le Supervisor Pattern standard pour MCP.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-left">
+      Nexus Automation Framework — Architecture Documentation — v1.1.0<br>
+      <span style="color:var(--text3);">Usage restreint aux environnements autorisés. CTF, pentest engagements, recherche défensive.</span>
+    </div>
+    <div class="footer-right">
+      <span class="tag tag-green">MCP SSE :8000</span>
+      <span class="tag tag-blue">15 Agents</span>
+      <span class="tag tag-gray">Kali Rolling</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

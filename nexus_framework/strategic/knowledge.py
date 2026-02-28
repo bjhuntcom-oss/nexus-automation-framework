@@ -22,6 +22,7 @@ Features:
 import asyncio
 import json
 import logging
+import os
 from typing import Dict, List, Optional, Set, Tuple, Any, Union
 from dataclasses import dataclass, field
 from enum import Enum
@@ -225,25 +226,64 @@ class EvasionPattern:
 
 
 class KnowledgeDatabase:
-    """Main knowledge database with SQLite backend."""
+    """Main knowledge database with SQLite backend.
     
-    def __init__(self, db_path: str = "knowledge.db"):
-        self.db_path = db_path
+    IMPORTANT: This class must match the ACTUAL enriched DB schema.
+    The enriched DB has these tables with these columns:
+    
+    - cve_entries: cve_id, description, severity, cvss_score, cvss_vector,
+      published_date, modified_date, affected_products, cve_references,
+      exploit_available, exploit_complexity, required_privileges,
+      user_interaction, scope_changed, confidentiality_impact,
+      integrity_impact, availability_impact, knowledge_version, 
+      created_at, updated_at
+      
+    - attack_techniques: technique_id, name, description, tactic, platforms,
+      data_sources, detection, mitigation, ref_links, knowledge_version,
+      created_at, updated_at
+      
+    - service_vulnerabilities: vuln_id, service_name, version_pattern,
+      vulnerability_type, description, severity, cve_refs, exploit_refs,
+      detection_methods, mitigation, created_at, updated_at
+      
+    - exploit_patterns: pattern_id, name, description, category,
+      technique_refs, service_refs, payload_examples, detection_indicators,
+      success_indicators, complexity, reliability, side_effects,
+      created_at, updated_at
+      
+    - evasion_patterns: pattern_id, name, description, category,
+      target_systems, technique_refs, implementation, detection_bypass,
+      effectiveness, created_at, updated_at
+      
+    - workflow_rules: rule_id, name, phase, category, description,
+      conditions, actions, priority, enabled, created_at, updated_at
+    """
+    
+    def __init__(self, db_path: str = None):
+        self.db_path = db_path or os.environ.get("NEXUS_DB_PATH", "/app/knowledge.db")
         self.logger = logging.getLogger("knowledge_database")
         self._lock = threading.Lock()
         
-        # Initialize database
-        self._initialize_database()
-        
-        # Load initial knowledge
-        self._load_initial_knowledge()
+        # Only initialize schema if DB doesn't exist yet
+        self._ensure_schema()
     
-    def _initialize_database(self):
-        """Initialize SQLite database schema."""
+    def _ensure_schema(self):
+        """Ensure DB tables exist. Uses the ACTUAL enriched schema.
+        Creates only missing tables — never overwrites existing ones.
+        """
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
-            # CVE table
+            # Check if DB is already populated
+            try:
+                count = cursor.execute("SELECT COUNT(*) FROM cve_entries").fetchone()[0]
+                if count > 0:
+                    self.logger.info(f"Knowledge DB already populated: {count} CVEs")
+                    return  # DB exists and has data, don't touch schema
+            except Exception:
+                pass  # Table doesn't exist, create it
+            
+            # CVE table (actual enriched schema)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS cve_entries (
                     cve_id TEXT PRIMARY KEY,
@@ -254,7 +294,7 @@ class KnowledgeDatabase:
                     published_date TEXT,
                     modified_date TEXT,
                     affected_products TEXT,
-                    references TEXT,
+                    cve_references TEXT,
                     exploit_available BOOLEAN,
                     exploit_complexity TEXT,
                     required_privileges TEXT,
@@ -263,76 +303,99 @@ class KnowledgeDatabase:
                     confidentiality_impact TEXT,
                     integrity_impact TEXT,
                     availability_impact TEXT,
-                    knowledge_version INTEGER DEFAULT 1
+                    knowledge_version INTEGER DEFAULT 1,
+                    created_at TEXT,
+                    updated_at TEXT
                 )
             """)
             
-            # Attack techniques table
+            # Attack techniques (actual enriched schema)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS attack_techniques (
                     technique_id TEXT PRIMARY KEY,
                     name TEXT,
                     description TEXT,
-                    phase TEXT,
+                    tactic TEXT,
                     platforms TEXT,
-                    required_permissions TEXT,
                     data_sources TEXT,
-                    detection_methods TEXT,
+                    detection TEXT,
                     mitigation TEXT,
-                    effectiveness_score REAL,
-                    detection_difficulty TEXT,
-                    tool_requirements TEXT,
-                    sub_techniques TEXT,
-                    knowledge_version INTEGER DEFAULT 1
+                    ref_links TEXT,
+                    knowledge_version INTEGER DEFAULT 1,
+                    created_at TEXT,
+                    updated_at TEXT
                 )
             """)
             
-            # Service vulnerabilities table
+            # Service vulnerabilities (actual enriched schema)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS service_vulnerabilities (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    vuln_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     service_name TEXT,
-                    service_version TEXT,
-                    port INTEGER,
-                    protocol TEXT,
-                    cve_ids TEXT,
-                    default_credentials TEXT,
-                    common_misconfigurations TEXT,
-                    exploitation_methods TEXT,
-                    detection_signatures TEXT,
-                    knowledge_version INTEGER DEFAULT 1
+                    version_pattern TEXT,
+                    vulnerability_type TEXT,
+                    description TEXT,
+                    severity TEXT,
+                    cve_refs TEXT,
+                    exploit_refs TEXT,
+                    detection_methods TEXT,
+                    mitigation TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
                 )
             """)
             
-            # Exploit patterns table
+            # Exploit patterns (actual enriched schema)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS exploit_patterns (
                     pattern_id TEXT PRIMARY KEY,
                     name TEXT,
-                    vulnerability_type TEXT,
-                    exploitation_method TEXT,
-                    required_conditions TEXT,
+                    description TEXT,
+                    category TEXT,
+                    technique_refs TEXT,
+                    service_refs TEXT,
+                    payload_examples TEXT,
+                    detection_indicators TEXT,
                     success_indicators TEXT,
-                    failure_indicators TEXT,
+                    complexity TEXT,
+                    reliability TEXT,
                     side_effects TEXT,
-                    detection_signatures TEXT,
-                    mitigation_techniques TEXT,
-                    knowledge_version INTEGER DEFAULT 1
+                    created_at TEXT,
+                    updated_at TEXT
                 )
             """)
             
-            # Evasion patterns table
+            # Evasion patterns (actual enriched schema)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS evasion_patterns (
                     pattern_id TEXT PRIMARY KEY,
                     name TEXT,
-                    evasion_technique TEXT,
-                    target_defenses TEXT,
-                    implementation_methods TEXT,
-                    detection_bypasses TEXT,
-                    effectiveness_score REAL,
-                    countermeasures TEXT,
-                    knowledge_version INTEGER DEFAULT 1
+                    description TEXT,
+                    category TEXT,
+                    target_systems TEXT,
+                    technique_refs TEXT,
+                    implementation TEXT,
+                    detection_bypass TEXT,
+                    effectiveness TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            """)
+            
+            # Workflow rules (actual enriched schema)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS workflow_rules (
+                    rule_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT,
+                    phase TEXT,
+                    category TEXT,
+                    description TEXT,
+                    conditions TEXT,
+                    actions TEXT,
+                    priority INTEGER DEFAULT 5,
+                    enabled BOOLEAN DEFAULT 1,
+                    created_at TEXT,
+                    updated_at TEXT
                 )
             """)
             
@@ -345,7 +408,26 @@ class KnowledgeDatabase:
                     changes_summary TEXT
                 )
             """)
-            
+
+            # Tool profiles (queried by specialists agents on startup)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS tool_profiles (
+                    tool_id TEXT PRIMARY KEY,
+                    name TEXT,
+                    description TEXT,
+                    category TEXT,
+                    command_template TEXT,
+                    parameters TEXT,
+                    output_formats TEXT,
+                    capabilities TEXT,
+                    dependencies TEXT,
+                    install_commands TEXT,
+                    version TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            """)
+
             conn.commit()
     
     def _load_initial_knowledge(self):
@@ -579,7 +661,7 @@ class KnowledgeDatabase:
                 evasion_technique="Legitimate tool abuse",
                 target_defenses=["Tool-based detection", "Whitelisting"],
                 implementation_methods=["PowerShell", "WMI", "Certutil", "Bitsadmin"],
-                detection_bypasses ["Legitimate process usage", "Signed binaries"],
+                detection_bypasses=["Legitimate process usage", "Signed binaries"],
                 effectiveness_score=0.7,
                 countermeasures=["Command-line logging", "Behavioral analysis"]
             ),
@@ -589,7 +671,7 @@ class KnowledgeDatabase:
                 evasion_technique="System modification",
                 target_defenses=["File system monitoring", "Integrity checking"],
                 implementation_methods=["Kernel module loading", "System call hooking", "DKOM"],
-                detection_bypasses["Hidden processes", "File system hiding"],
+                detection_bypasses=["Hidden processes", "File system hiding"],
                 effectiveness_score=0.9,
                 countermeasures=["Kernel integrity checking", "Trusted boot"]
             )
@@ -603,7 +685,7 @@ class KnowledgeDatabase:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO knowledge_versions (version, created_at, description, changes_summary)
+                INSERT OR REPLACE INTO knowledge_versions (version, created_at, description, changes_summary)
                 VALUES (?, ?, ?, ?)
             """, (version, datetime.now().isoformat(), description, changes))
             conn.commit()
@@ -616,7 +698,7 @@ class KnowledgeDatabase:
                 cursor.execute("""
                     INSERT OR REPLACE INTO cve_entries 
                     (cve_id, description, severity, cvss_score, cvss_vector,
-                     published_date, modified_date, affected_products, references,
+                     published_date, modified_date, affected_products, cve_references,
                      exploit_available, exploit_complexity, required_privileges,
                      user_interaction, scope_changed, confidentiality_impact,
                      integrity_impact, availability_impact)
@@ -642,18 +724,14 @@ class KnowledgeDatabase:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT OR REPLACE INTO attack_techniques 
-                    (technique_id, name, description, phase, platforms,
-                     required_permissions, data_sources, detection_methods,
-                     mitigation, effectiveness_score, detection_difficulty,
-                     tool_requirements, sub_techniques)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (technique_id, name, description, tactic, platforms,
+                     data_sources, detection, mitigation, ref_links)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     technique.technique_id, technique.name, technique.description,
                     technique.phase.value, json.dumps(technique.platforms),
-                    json.dumps(technique.required_permissions), json.dumps(technique.data_sources),
-                    json.dumps(technique.detection_methods), technique.mitigation,
-                    technique.effectiveness_score, technique.detection_difficulty,
-                    json.dumps(technique.tool_requirements), json.dumps(technique.sub_techniques)
+                    json.dumps(technique.data_sources), json.dumps(technique.detection_methods),
+                    technique.mitigation, json.dumps([])
                 ))
                 conn.commit()
                 return True
@@ -667,16 +745,14 @@ class KnowledgeDatabase:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO service_vulnerabilities 
-                    (service_name, service_version, port, protocol, cve_ids,
-                     default_credentials, common_misconfigurations, exploitation_methods,
-                     detection_signatures)
+                    INSERT INTO service_vulnerabilities
+                    (service_name, version_pattern, vulnerability_type, description,
+                     severity, cve_refs, exploit_refs, detection_methods, mitigation)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    service.service_name, service.service_version, service.port,
-                    service.protocol, json.dumps(service.cve_ids),
-                    json.dumps(service.default_credentials), json.dumps(service.common_misconfigurations),
-                    json.dumps(service.exploitation_methods), json.dumps(service.detection_signatures)
+                    service.service_name, service.service_version, "Unknown", "",
+                    "Medium", json.dumps(service.cve_ids), json.dumps(service.exploitation_methods),
+                    json.dumps(service.detection_signatures), ""
                 ))
                 conn.commit()
                 return True
@@ -691,16 +767,14 @@ class KnowledgeDatabase:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT OR REPLACE INTO exploit_patterns 
-                    (pattern_id, name, vulnerability_type, exploitation_method,
-                     required_conditions, success_indicators, failure_indicators,
-                     side_effects, detection_signatures, mitigation_techniques)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (pattern_id, name, description, category, technique_refs,
+                     service_refs, payload_examples, detection_indicators,
+                     success_indicators, complexity, reliability, side_effects)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    pattern.pattern_id, pattern.name, pattern.vulnerability_type,
-                    pattern.exploitation_method, json.dumps(pattern.required_conditions),
-                    json.dumps(pattern.success_indicators), json.dumps(pattern.failure_indicators),
-                    json.dumps(pattern.side_effects), json.dumps(pattern.detection_signatures),
-                    json.dumps(pattern.mitigation_techniques)
+                    pattern.pattern_id, pattern.name, "", pattern.vulnerability_type, json.dumps([]),
+                    json.dumps([]), json.dumps([]), json.dumps(pattern.detection_signatures),
+                    json.dumps(pattern.success_indicators), "Medium", "High", json.dumps(pattern.side_effects)
                 ))
                 conn.commit()
                 return True
@@ -715,15 +789,13 @@ class KnowledgeDatabase:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT OR REPLACE INTO evasion_patterns 
-                    (pattern_id, name, evasion_technique, target_defenses,
-                     implementation_methods, detection_bypasses, effectiveness_score,
-                     countermeasures)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (pattern_id, name, description, category, target_systems,
+                     technique_refs, implementation, detection_bypass, effectiveness)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    pattern.pattern_id, pattern.name, pattern.evasion_technique,
-                    json.dumps(pattern.target_defenses), json.dumps(pattern.implementation_methods),
-                    json.dumps(pattern.detection_bypasses), pattern.effectiveness_score,
-                    json.dumps(pattern.countermeasures)
+                    pattern.pattern_id, pattern.name, "", pattern.evasion_technique, json.dumps(pattern.target_defenses),
+                    json.dumps([]), json.dumps(pattern.implementation_methods), json.dumps(pattern.detection_bypasses),
+                    pattern.effectiveness_score
                 ))
                 conn.commit()
                 return True
@@ -762,7 +834,7 @@ class KnowledgeDatabase:
                         published_date=datetime.fromisoformat(data['published_date']),
                         modified_date=datetime.fromisoformat(data['modified_date']),
                         affected_products=json.loads(data['affected_products']),
-                        references=json.loads(data['references']),
+                        references=json.loads(data['cve_references']),
                         exploit_available=data['exploit_available'],
                         exploit_complexity=data['exploit_complexity'],
                         required_privileges=data['required_privileges'],
@@ -779,47 +851,45 @@ class KnowledgeDatabase:
         
         return results
     
-    def get_attack_techniques_by_phase(self, phase: AttackPhase) -> List[AttackTechnique]:
-        """Get attack techniques by phase."""
+    def get_attack_techniques_by_phase(self, phase: AttackPhase) -> List[Dict]:
+        """Get attack techniques by tactic phase.
+        
+        NOTE: Actual DB column is 'tactic' not 'phase'.
+        Returns dicts instead of dataclass because schema doesn't match dataclass.
+        """
         results = []
         
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT * FROM attack_techniques WHERE phase = ?
-                    ORDER BY effectiveness_score DESC
+                    SELECT technique_id, name, description, tactic, platforms,
+                           detection, mitigation
+                    FROM attack_techniques WHERE tactic = ?
+                    ORDER BY name
                 """, (phase.value,))
                 
-                rows = cursor.fetchall()
-                columns = [desc[0] for desc in cursor.description]
-                
-                for row in rows:
-                    data = dict(zip(columns, row))
-                    technique = AttackTechnique(
-                        technique_id=data['technique_id'],
-                        name=data['name'],
-                        description=data['description'],
-                        phase=AttackPhase(data['phase']),
-                        platforms=json.loads(data['platforms']),
-                        required_permissions=json.loads(data['required_permissions']),
-                        data_sources=json.loads(data['data_sources']),
-                        detection_methods=json.loads(data['detection_methods']),
-                        mitigation=data['mitigation'],
-                        effectiveness_score=data['effectiveness_score'],
-                        detection_difficulty=data['detection_difficulty'],
-                        tool_requirements=json.loads(data['tool_requirements']),
-                        sub_techniques=json.loads(data['sub_techniques'])
-                    )
-                    results.append(technique)
+                for row in cursor.fetchall():
+                    results.append({
+                        'technique_id': row[0],
+                        'name': row[1],
+                        'description': row[2],
+                        'tactic': row[3],
+                        'platforms': json.loads(row[4]) if row[4] else [],
+                        'detection': row[5],
+                        'mitigation': row[6],
+                    })
         
         except Exception as e:
-            self.logger.error(f"Failed to get techniques for phase {phase.value}: {e}")
+            self.logger.error(f"Failed to get techniques for tactic {phase.value}: {e}")
         
         return results
     
-    def get_service_vulnerabilities(self, service_name: str, version: str = "") -> List[ServiceVulnerability]:
-        """Get vulnerabilities for a specific service."""
+    def get_service_vulnerabilities(self, service_name: str, version: str = "") -> List[Dict]:
+        """Get vulnerabilities for a specific service.
+        
+        NOTE: Actual DB uses version_pattern, cve_refs, exploit_refs, etc.
+        """
         results = []
         
         try:
@@ -828,67 +898,71 @@ class KnowledgeDatabase:
                 
                 if version:
                     cursor.execute("""
-                        SELECT * FROM service_vulnerabilities 
-                        WHERE service_name = ? AND service_version = ?
-                    """, (service_name, version))
+                        SELECT vuln_id, service_name, version_pattern, vulnerability_type,
+                               description, severity, cve_refs, exploit_refs,
+                               detection_methods, mitigation
+                        FROM service_vulnerabilities 
+                        WHERE service_name LIKE ? AND version_pattern LIKE ?
+                    """, (f"%{service_name}%", f"%{version}%"))
                 else:
                     cursor.execute("""
-                        SELECT * FROM service_vulnerabilities 
-                        WHERE service_name = ?
-                    """, (service_name,))
+                        SELECT vuln_id, service_name, version_pattern, vulnerability_type,
+                               description, severity, cve_refs, exploit_refs,
+                               detection_methods, mitigation
+                        FROM service_vulnerabilities 
+                        WHERE service_name LIKE ?
+                    """, (f"%{service_name}%",))
                 
-                rows = cursor.fetchall()
-                columns = [desc[0] for desc in cursor.description]
-                
-                for row in rows:
-                    data = dict(zip(columns, row))
-                    service = ServiceVulnerability(
-                        service_name=data['service_name'],
-                        service_version=data['service_version'],
-                        port=data['port'],
-                        protocol=data['protocol'],
-                        cve_ids=json.loads(data['cve_ids']),
-                        default_credentials=json.loads(data['default_credentials']),
-                        common_misconfigurations=json.loads(data['common_misconfigurations']),
-                        exploitation_methods=json.loads(data['exploitation_methods']),
-                        detection_signatures=json.loads(data['detection_signatures'])
-                    )
-                    results.append(service)
+                for row in cursor.fetchall():
+                    results.append({
+                        'vuln_id': row[0],
+                        'service_name': row[1],
+                        'version_pattern': row[2],
+                        'vulnerability_type': row[3],
+                        'description': row[4],
+                        'severity': row[5],
+                        'cve_refs': json.loads(row[6]) if row[6] else [],
+                        'exploit_refs': json.loads(row[7]) if row[7] else [],
+                        'detection_methods': json.loads(row[8]) if row[8] else [],
+                        'mitigation': row[9],
+                    })
         
         except Exception as e:
             self.logger.error(f"Failed to get service vulnerabilities for {service_name}: {e}")
         
         return results
     
-    def get_exploit_patterns_by_type(self, vulnerability_type: str) -> List[ExploitPattern]:
-        """Get exploit patterns by vulnerability type."""
+    def get_exploit_patterns_by_type(self, vulnerability_type: str) -> List[Dict]:
+        """Get exploit patterns by category/vulnerability type.
+        
+        NOTE: Actual DB uses 'category' column, not 'vulnerability_type'.
+        """
         results = []
         
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT * FROM exploit_patterns WHERE vulnerability_type = ?
-                """, (vulnerability_type,))
+                    SELECT pattern_id, name, description, category,
+                           technique_refs, service_refs, payload_examples,
+                           success_indicators, complexity, reliability
+                    FROM exploit_patterns 
+                    WHERE category LIKE ? OR description LIKE ?
+                """, (f"%{vulnerability_type}%", f"%{vulnerability_type}%"))
                 
-                rows = cursor.fetchall()
-                columns = [desc[0] for desc in cursor.description]
-                
-                for row in rows:
-                    data = dict(zip(columns, row))
-                    pattern = ExploitPattern(
-                        pattern_id=data['pattern_id'],
-                        name=data['name'],
-                        vulnerability_type=data['vulnerability_type'],
-                        exploitation_method=data['exploitation_method'],
-                        required_conditions=json.loads(data['required_conditions']),
-                        success_indicators=json.loads(data['success_indicators']),
-                        failure_indicators=json.loads(data['failure_indicators']),
-                        side_effects=json.loads(data['side_effects']),
-                        detection_signatures=json.loads(data['detection_signatures']),
-                        mitigation_techniques=json.loads(data['mitigation_techniques'])
-                    )
-                    results.append(pattern)
+                for row in cursor.fetchall():
+                    results.append({
+                        'pattern_id': row[0],
+                        'name': row[1],
+                        'description': row[2],
+                        'category': row[3],
+                        'technique_refs': json.loads(row[4]) if row[4] else [],
+                        'service_refs': json.loads(row[5]) if row[5] else [],
+                        'payload_examples': json.loads(row[6]) if row[6] else [],
+                        'success_indicators': json.loads(row[7]) if row[7] else [],
+                        'complexity': row[8],
+                        'reliability': row[9],
+                    })
         
         except Exception as e:
             self.logger.error(f"Failed to get exploit patterns for type {vulnerability_type}: {e}")
@@ -914,8 +988,9 @@ class KnowledgeDatabase:
                 cursor.execute("SELECT COUNT(*) FROM attack_techniques")
                 stats['technique_count'] = cursor.fetchone()[0]
                 
-                cursor.execute("SELECT phase, COUNT(*) FROM attack_techniques GROUP BY phase")
-                stats['techniques_by_phase'] = dict(cursor.fetchall())
+                # Use 'tactic' column (actual DB schema)
+                cursor.execute("SELECT tactic, COUNT(*) FROM attack_techniques GROUP BY tactic")
+                stats['techniques_by_tactic'] = dict(cursor.fetchall())
                 
                 # Service vulnerabilities statistics
                 cursor.execute("SELECT COUNT(*) FROM service_vulnerabilities")
@@ -928,6 +1003,17 @@ class KnowledgeDatabase:
                 # Evasion patterns statistics
                 cursor.execute("SELECT COUNT(*) FROM evasion_patterns")
                 stats['evasion_pattern_count'] = cursor.fetchone()[0]
+                
+                # Workflow rules
+                cursor.execute("SELECT COUNT(*) FROM workflow_rules")
+                stats['workflow_rule_count'] = cursor.fetchone()[0]
+                
+                # CVE depth
+                cursor.execute("SELECT COUNT(*) FROM cve_entries WHERE exploit_available = 1")
+                stats['exploitable_cves'] = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM cve_entries WHERE cvss_score >= 9.0")
+                stats['critical_cves'] = cursor.fetchone()[0]
                 
                 # Knowledge version
                 cursor.execute("SELECT MAX(version) FROM knowledge_versions")

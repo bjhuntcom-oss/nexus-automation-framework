@@ -1,5 +1,5 @@
 """
-BJHunt Alpha Strategic Engine Package
+Nexus Automation Framework Strategic Engine Package
 
 Enterprise-grade autonomous offensive security evaluation platform
 with advanced decision-making capabilities and distributed orchestration.
@@ -16,30 +16,38 @@ Modules:
 - observability: Complete monitoring and observability stack
 """
 
+import asyncio
+import os
+
 from .brain import StrategicBrainEngine, OperationContext, OperationState
 from .attack_graph import AttackGraphEngine, GraphNode, GraphEdge
 from .correlation import CorrelationEngine, NormalizedResult
 from .knowledge import KnowledgeDatabase, CVEEntry, AttackTechnique
 from .execution import AdaptiveExecutionEngine, ExecutionResult
-from .orchestration import DistributedOrchestrator, TaskDefinition
+from .orchestration import DistributedOrchestrator, TaskDefinition, TaskPriority, TaskType
 from .opsec import OPSECManager, ScopeDefinition
 from .governance import GovernanceManager, User, UserRole
 from .observability import ObservabilityManager
+from .rate_limiter import AdaptiveRateLimiter, adaptive_rate_limiter
 
-__version__ = "2.0.0"
-__author__ = "BJHunt Team"
+__version__ = "1.0.0"
+__author__ = "Nexus Development Team"
 __description__ = "Enterprise-grade autonomous offensive security platform"
 
 # Global instances for easy access
+# KnowledgeDatabase MUST be created first so _init_db() runs before StrategicBrainEngine._load_techniques()
+knowledge_database = KnowledgeDatabase()
 brain_engine = StrategicBrainEngine()
 attack_graph_engine = AttackGraphEngine()
 correlation_engine = CorrelationEngine()
-knowledge_database = KnowledgeDatabase()
 execution_engine = AdaptiveExecutionEngine()
 orchestrator = DistributedOrchestrator()
 opsec_manager = OPSECManager()
-governance_manager = GovernanceManager("bjhunt-alpha-production-key")
+governance_manager = GovernanceManager(
+    os.environ.get("NEXUS_GOVERNANCE_KEY", "nexus-framework-production-key")
+)
 observability_manager = ObservabilityManager()
+rate_limiter = adaptive_rate_limiter
 
 # Initialize strategic components
 def initialize_strategic_components():
@@ -87,8 +95,13 @@ def initialize_strategic_components():
                     )
                     
                     # 2. Update Brain Engine with new findings
-                    op_id = result.task_id.split('_')[1] if 'op_' in result.task_id else None
-                    if op_id:
+                    # task_id format: "task_op_YYYYMMDD_HHMMSS_xxxxxxxx"
+                    # operation_id format: "op_YYYYMMDD_HHMMSS"
+                    op_id = None
+                    parts = result.task_id.split('_')
+                    if len(parts) >= 4 and parts[1] == 'op':
+                        op_id = '_'.join(parts[1:4])  # e.g. "op_20260227_205500"
+                    if op_id and op_id in brain_engine.active_operations:
                         loop.run_until_complete(
                             brain_engine.update_operation_state(
                                 operation_id=op_id,
@@ -109,8 +122,6 @@ def initialize_strategic_components():
     orchestrator.on_task_complete_callbacks.append(task_completion_callback)
     
     return True
-
-import asyncio
 
 def shutdown_strategic_components():
     """Shutdown all strategic components."""

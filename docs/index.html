@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Nexus Automation Framework - Military-grade autonomous offensive security platform documentation">
+    <title>Nexus Automation Framework — Documentation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a28;
+            --bg-card: #141420;
+            --text-primary: #e8e8f0;
+            --text-secondary: #a0a0b8;
+            --text-muted: #6a6a80;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --accent-border: rgba(99, 102, 241, 0.3);
+            --green: #22c55e;
+            --red: #ef4444;
+            --orange: #f59e0b;
+            --cyan: #06b6d4;
+            --pink: #ec4899;
+            --border: rgba(255, 255, 255, 0.06);
+            --radius: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+        code, pre {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── LAYOUT ── */
+        .layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            min-height: 100vh;
+        }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 4px; }
+        .sidebar-brand {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 15px;
+        }
+        .sidebar-brand h1 {
+            font-size: 1.1em;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+        .sidebar-brand .version {
+            font-size: 0.75em;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .nav-section {
+            padding: 8px 20px 4px;
+            font-size: 0.65em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+        }
+        .nav-link {
+            display: block;
+            padding: 6px 20px 6px 28px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85em;
+            border-left: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .nav-link:hover {
+            color: var(--text-primary);
+            background: var(--accent-glow);
+            border-left-color: var(--accent);
+        }
+        .nav-link.active {
+            color: var(--accent);
+            border-left-color: var(--accent);
+            background: var(--accent-glow);
+            font-weight: 500;
+        }
+
+        /* ── MAIN ── */
+        .main {
+            padding: 40px 60px;
+            max-width: 900px;
+        }
+
+        /* ── HERO ── */
+        .hero {
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-card) 100%);
+            border: 1px solid var(--accent-border);
+            border-radius: var(--radius);
+            padding: 40px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        .hero h1 {
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+            position: relative;
+        }
+        .hero p {
+            color: var(--text-secondary);
+            font-size: 1.05em;
+            position: relative;
+        }
+        .hero .badges {
+            display: flex;
+            gap: 8px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            position: relative;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: 500;
+            border: 1px solid;
+        }
+        .badge-accent { color: var(--accent); border-color: var(--accent-border); background: var(--accent-glow); }
+        .badge-green { color: var(--green); border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.08); }
+        .badge-cyan { color: var(--cyan); border-color: rgba(6,182,212,0.3); background: rgba(6,182,212,0.08); }
+        .badge-pink { color: var(--pink); border-color: rgba(236,72,153,0.3); background: rgba(236,72,153,0.08); }
+
+        /* ── SECTIONS ── */
+        h2 {
+            font-size: 1.5em;
+            font-weight: 600;
+            margin: 40px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            letter-spacing: -0.5px;
+        }
+        h3 {
+            font-size: 1.15em;
+            font-weight: 600;
+            margin: 25px 0 12px;
+            color: var(--text-primary);
+        }
+        p { margin-bottom: 12px; color: var(--text-secondary); }
+
+        /* ── CARDS ── */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        .card:hover {
+            border-color: var(--accent-border);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .card .icon {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+        .card h4 {
+            font-size: 0.95em;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .card p {
+            font-size: 0.82em;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        /* ── CODE ── */
+        pre {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px 20px;
+            overflow-x: auto;
+            font-size: 0.85em;
+            line-height: 1.6;
+            margin: 12px 0;
+            color: var(--green);
+        }
+        code {
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.88em;
+            color: var(--cyan);
+        }
+        pre code { background: none; padding: 0; color: inherit; }
+
+        /* ── TABLE ── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.88em;
+        }
+        th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        /* ── ARCHITECTURE ── */
+        .arch-diagram {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 30px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .arch-layer {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .arch-box {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 0.8em;
+            font-weight: 500;
+            min-width: 120px;
+            text-align: center;
+        }
+        .arch-box.accent { border-color: var(--accent-border); color: var(--accent); }
+        .arch-box.green { border-color: rgba(34,197,94,0.3); color: var(--green); }
+        .arch-box.cyan { border-color: rgba(6,182,212,0.3); color: var(--cyan); }
+        .arch-box.pink { border-color: rgba(236,72,153,0.3); color: var(--pink); }
+        .arch-box.orange { border-color: rgba(245,158,11,0.3); color: var(--orange); }
+        .arch-arrow {
+            color: var(--text-muted);
+            font-size: 1.2em;
+            margin: 5px 0;
+        }
+        .arch-label {
+            font-size: 0.7em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin: 15px 0 5px;
+        }
+
+        /* ── ALERTS ── */
+        .alert {
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin: 16px 0;
+            font-size: 0.88em;
+            border-left: 3px solid;
+        }
+        .alert-info { background: rgba(6,182,212,0.06); border-color: var(--cyan); }
+        .alert-warn { background: rgba(245,158,11,0.06); border-color: var(--orange); }
+        .alert-danger { background: rgba(239,68,68,0.06); border-color: var(--red); }
+        .alert-success { background: rgba(34,197,94,0.06); border-color: var(--green); }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; }
+            .sidebar { display: none; }
+            .main { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div class="sidebar-brand">
+                <h1>⚡ Nexus</h1>
+                <div class="version">v1.1.0 — Documentation</div>
+            </div>
+
+            <div class="nav-section">Getting Started</div>
+            <a href="#overview" class="nav-link active">Overview</a>
+            <a href="#architecture" class="nav-link">Architecture</a>
+            <a href="#quickstart" class="nav-link">Quick Start</a>
+
+            <div class="nav-section">Core Modules</div>
+            <a href="#config" class="nav-link">Configuration</a>
+            <a href="#exceptions" class="nav-link">Exceptions</a>
+            <a href="#validators" class="nav-link">Validators</a>
+            <a href="#middleware" class="nav-link">Middleware</a>
+            <a href="#db-manager" class="nav-link">Database</a>
+            <a href="#crypto" class="nav-link">Crypto Utils</a>
+
+            <div class="nav-section">Offensive Modules</div>
+            <a href="#recon" class="nav-link">Reconnaissance</a>
+            <a href="#auto-exploit" class="nav-link">Auto Exploit</a>
+            <a href="#evasion" class="nav-link">Evasion Engine</a>
+            <a href="#payloads" class="nav-link">Payload Manager</a>
+
+            <div class="nav-section">Security</div>
+            <a href="#container-security" class="nav-link">Container Security</a>
+            <a href="#network-monitor" class="nav-link">Network Monitor</a>
+            <a href="#kill-switch" class="nav-link">Kill Switch</a>
+
+            <div class="nav-section">Operations</div>
+            <a href="#strategic" class="nav-link">Strategic Engine</a>
+            <a href="#reports" class="nav-link">Report Generator</a>
+            <a href="#metrics" class="nav-link">Metrics</a>
+            <a href="#plugins" class="nav-link">Plugin System</a>
+
+            <div class="nav-section">Deployment</div>
+            <a href="#docker" class="nav-link">Docker</a>
+            <a href="#mcp" class="nav-link">MCP Integration</a>
+            <a href="#env" class="nav-link">Environment Variables</a>
+        </nav>
+
+        <!-- MAIN CONTENT -->
+        <main class="main">
+            <!-- HERO -->
+            <section class="hero" id="overview">
+                <h1>Nexus Automation Framework</h1>
+                <p>Military-grade autonomous offensive security platform with AI-driven decision making, real-time threat detection, and comprehensive pentesting capabilities.</p>
+                <div class="badges">
+                    <span class="badge badge-accent">MCP Protocol</span>
+                    <span class="badge badge-green">Kali Linux</span>
+                    <span class="badge badge-cyan">Strategic Engine</span>
+                    <span class="badge badge-pink">Kill Switch IDS</span>
+                </div>
+            </section>
+
+            <!-- ARCHITECTURE -->
+            <section id="architecture">
+                <h2>Architecture</h2>
+                <div class="arch-diagram">
+                    <div class="arch-label">Client Layer</div>
+                    <div class="arch-layer">
+                        <div class="arch-box accent">Claude Desktop</div>
+                        <div class="arch-box accent">MCP Client</div>
+                        <div class="arch-box accent">Web UI</div>
+                    </div>
+                    <div class="arch-arrow">↕ MCP Protocol (SSE / stdio)</div>
+
+                    <div class="arch-label">Middleware Layer</div>
+                    <div class="arch-layer">
+                        <div class="arch-box cyan">Rate Limiter</div>
+                        <div class="arch-box cyan">Input Validator</div>
+                        <div class="arch-box cyan">Security Screen</div>
+                        <div class="arch-box cyan">Metrics</div>
+                    </div>
+                    <div class="arch-arrow">↕</div>
+
+                    <div class="arch-label">Server Layer</div>
+                    <div class="arch-layer">
+                        <div class="arch-box green">MCP Server</div>
+                        <div class="arch-box green">Tool Router</div>
+                        <div class="arch-box green">Resource Manager</div>
+                    </div>
+                    <div class="arch-arrow">↕</div>
+
+                    <div class="arch-label">Engine Layer</div>
+                    <div class="arch-layer">
+                        <div class="arch-box pink">Strategic Brain</div>
+                        <div class="arch-box pink">Recon Engine</div>
+                        <div class="arch-box pink">Exploit Engine</div>
+                        <div class="arch-box pink">Evasion Engine</div>
+                    </div>
+                    <div class="arch-arrow">↕</div>
+
+                    <div class="arch-label">Security Layer</div>
+                    <div class="arch-layer">
+                        <div class="arch-box orange">Kill Switch</div>
+                        <div class="arch-box orange">IDS/IPS</div>
+                        <div class="arch-box orange">Network Monitor</div>
+                        <div class="arch-box orange">Audit Chain</div>
+                    </div>
+                    <div class="arch-arrow">↕</div>
+
+                    <div class="arch-label">Infrastructure</div>
+                    <div class="arch-layer">
+                        <div class="arch-box">SQLite (WAL)</div>
+                        <div class="arch-box">Redis</div>
+                        <div class="arch-box">Prometheus</div>
+                        <div class="arch-box">Grafana</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- QUICK START -->
+            <section id="quickstart">
+                <h2>Quick Start</h2>
+                <h3>Docker Compose (Recommended)</h3>
+<pre>
+# Clone the repository
+git clone https://github.com/bjhuntcom-oss/nexus-automation-framework.git
+cd nexus-automation-framework
+
+# Build and start all services
+docker compose up -d --build
+
+# Check status
+docker compose ps
+docker compose logs nexus-framework
+</pre>
+
+                <h3>Standalone Docker</h3>
+<pre>
+# Build the image
+docker build -t nexus-framework .
+
+# Run with security features
+docker run -d \
+  --name nexus \
+  -p 8000:8000 \
+  -e NEXUS_KILL_SWITCH_ENABLED=true \
+  -e NEXUS_HOST_ONLY_MODE=true \
+  -v nexus-data:/app/data \
+  nexus-framework
+</pre>
+
+                <h3>MCP Client Configuration</h3>
+<pre>
+{
+  "mcpServers": {
+    "nexus": {
+      "url": "http://localhost:8000/sse"
+    }
+  }
+}
+</pre>
+            </section>
+
+            <!-- MODULES -->
+            <section id="config">
+                <h2>Configuration</h2>
+                <p>All settings are driven by environment variables with secure defaults.</p>
+
+                <div class="card-grid">
+                    <div class="card">
+                        <div class="icon">⚙️</div>
+                        <h4>ServerConfig</h4>
+                        <p>Host, port, transport mode, CORS, request limits</p>
+                    </div>
+                    <div class="card">
+                        <div class="icon">🛡️</div>
+                        <h4>SecurityConfig</h4>
+                        <p>Kill switch, IDS, rate limiting, trusted IPs, VPN mode</p>
+                    </div>
+                    <div class="card">
+                        <div class="icon">🗄️</div>
+                        <h4>DatabaseConfig</h4>
+                        <p>Pool size, WAL mode, cache, mmap, auto-vacuum</p>
+                    </div>
+                    <div class="card">
+                        <div class="icon">🎯</div>
+                        <h4>ExecutionConfig</h4>
+                        <p>Timeouts, concurrency, retry strategy, output limits</p>
+                    </div>
+                    <div class="card">
+                        <div class="icon">🧠</div>
+                        <h4>StrategicConfig</h4>
+                        <p>Risk tolerance, stealth default, auto-escalation</p>
+                    </div>
+                    <div class="card">
+                        <div class="icon">📊</div>
+                        <h4>ReportingConfig</h4>
+                        <p>Format, company branding, classification level</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="exceptions">
+                <h2>Exception Hierarchy</h2>
+                <p>30+ structured exception classes with error codes, severity, recovery hints, and context.</p>
+                <table>
+                    <tr><th>Category</th><th>Code Prefix</th><th>Examples</th></tr>
+                    <tr><td>Security</td><td><code>NEXUS-SEC-*</code></td><td>KillSwitchActivated, ContainerEscapeAttempt, IntrusionDetected</td></tr>
+                    <tr><td>MCP</td><td><code>NEXUS-MCP-*</code></td><td>ToolNotFoundError, RateLimitExceeded, ToolTimeoutError</td></tr>
+                    <tr><td>Execution</td><td><code>NEXUS-EXEC-*</code></td><td>CommandExecutionError, ToolMissingError, ResourceExhaustedError</td></tr>
+                    <tr><td>Database</td><td><code>NEXUS-DB-*</code></td><td>ConnectionError, CorruptedError, QueryError</td></tr>
+                    <tr><td>Network</td><td><code>NEXUS-NET-*</code></td><td>TargetUnreachableError, AuthenticationError, ConnectionTimeout</td></tr>
+                    <tr><td>Strategic</td><td><code>NEXUS-STR-*</code></td><td>OperationNotFound, ScopeViolation, OPSECViolation</td></tr>
+                    <tr><td>Validation</td><td><code>NEXUS-VAL-*</code></td><td>InputSanitizationError, SchemaValidationError</td></tr>
+                </table>
+            </section>
+
+            <section id="validators">
+                <h2>Validators</h2>
+                <p>Military-grade input validation preventing injection attacks, container escapes, and data exfiltration.</p>
+                <div class="alert alert-danger">
+                    <strong>Container Escape Detection:</strong> 19+ escape vectors are automatically blocked, including Docker socket access, namespace manipulation, cgroup abuse, and kernel module loading.
+                </div>
+                <div class="alert alert-warn">
+                    <strong>Exfiltration Detection:</strong> 9+ data exfiltration patterns are detected, including HTTP POST exfil, DNS tunneling, and encoded transfers.
+                </div>
+            </section>
+
+            <section id="middleware">
+                <h2>MCP Middleware</h2>
+                <p>Every MCP tool call passes through a 7-stage processing pipeline:</p>
+                <table>
+                    <tr><th>#</th><th>Stage</th><th>Description</th></tr>
+                    <tr><td>1</td><td>Kill Switch</td><td>Block all calls if emergency shutdownactivated</td></tr>
+                    <tr><td>2</td><td>Rate Limiting</td><td>Token bucket (global + per-tool limits)</td></tr>
+                    <tr><td>3</td><td>Input Validation</td><td>Container escape & injection detection</td></tr>
+                    <tr><td>4</td><td>Security Screening</td><td>Command policy enforcement</td></tr>
+                    <tr><td>5</td><td>Tool Execution</td><td>Async execution with timeout</td></tr>
+                    <tr><td>6</td><td>Output Normalization</td><td>Structured NexusResponse formatting</td></tr>
+                    <tr><td>7</td><td>Metrics & Logging</td><td>JSONL request log + Prometheus metrics</td></tr>
+                </table>
+            </section>
+
+            <section id="db-manager">
+                <h2>Database Manager</h2>
+                <p>High-performance SQLite with connection pooling, WAL mode, and migration system.</p>
+<pre>
+# Performance Configuration
+PRAGMA journal_mode = WAL      # Concurrent reads
+PRAGMA synchronous = NORMAL    # Balanced durability
+PRAGMA cache_size = -64000     # 64MB cache
+PRAGMA mmap_size = 268435456   # 256MB memory-mapped I/O
+PRAGMA foreign_keys = ON       # Referential integrity
+</pre>
+                <div class="alert alert-success">
+                    <strong>Migration System:</strong> 3 versioned migrations covering core tables, performance indexes, FTS5 full-text search, payloads, security audit log, operations, and findings.
+                </div>
+            </section>
+
+            <section id="crypto">
+                <h2>Crypto Utils</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <div class="icon">🔗</div>
+                        <h4>Audit Chain</h4>
+                        <p>HMAC-linked hash chain for tamper-evident logging</p>
+                    </div>
+                    <div class="card">
+                        <div class="icon">🔐</div>
+                        <h4>Secure Vault</h4>
+                        <p>Fernet encryption (AES-128-CBC + HMAC) for credentials</p>
+                    </div>
+                    <div class="card">
+                        <div class="icon">🎫</div>
+                        <h4>Kill Switch Auth</h4>
+                        <p>Time-based override tokens with grace window</p>
+                    </div>
+                    <div class="card">
+                        <div class="icon">🔑</div>
+                        <h4>Credential Store</h4>
+                        <p>Encrypted in-memory credential management</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- OFFENSIVE -->
+            <section id="recon">
+                <h2>Reconnaissance Engine</h2>
+                <p>Multi-phase OSINT and recon orchestrating 15+ tools automatically.</p>
+                <table>
+                    <tr><th>Phase</th><th>Tools</th><th>Output</th></tr>
+                    <tr><td>DNS Intelligence</td><td>dig, whois</td><td>A/AAAA/MX/NS/TXT/SOA/SRV, zone transfer, rDNS, ASN</td></tr>
+                    <tr><td>Subdomain Discovery</td><td>subfinder, amass, crt.sh, waybackurls, gobuster</td><td>Aggregated unique subdomains</td></tr>
+                    <tr><td>Tech Fingerprint</td><td>whatweb, curl, nuclei</td><td>Server, framework, CMS detection</td></tr>
+                    <tr><td>WAF/CDN Detection</td><td>wafw00f, nmap, curl</td><td>WAF type, CDN provider</td></tr>
+                    <tr><td>Port Scan</td><td>nmap -sS -sV</td><td>Open ports, versions, OS guess</td></tr>
+                    <tr><td>OSINT Harvest</td><td>theHarvester, whois</td><td>Emails, social profiles, registrant</td></tr>
+                    <tr><td>URL Discovery</td><td>waybackurls, katana, CDX API</td><td>APIs, admin panels, configs, backups</td></tr>
+                </table>
+            </section>
+
+            <section id="auto-exploit">
+                <h2>Auto Exploit Engine</h2>
+                <p>Service-to-exploit mapping for 10+ service types with automatic credential extraction.</p>
+                <div class="alert alert-info">
+                    Supports: SSH, HTTP, HTTPS, SMB, FTP, MySQL, RDP, LDAP, SNMP brute force, enumeration, and vulnerability scanning.
+                </div>
+            </section>
+
+            <section id="evasion">
+                <h2>Evasion Engine</h2>
+                <p>Multi-layer payload encoding and WAF bypass generation.</p>
+                <div class="card-grid">
+                    <div class="card">
+                        <h4>Encoders</h4>
+                        <p>URL, Unicode, Hex, HTML Entity, Base64, ROT13, Case Toggle, Null Byte, Concatenation</p>
+                    </div>
+                    <div class="card">
+                        <h4>WAF Bypass</h4>
+                        <p>SQLi, XSS, RCE bypass variants with 8+ techniques each</p>
+                    </div>
+                    <div class="card">
+                        <h4>Scan Evasion</h4>
+                        <p>5 stealth levels for nmap and gobuster with timing randomization</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="payloads">
+                <h2>Payload Manager</h2>
+                <p>Searchable payload database with category-based retrieval, LHOST/LPORT customization, and multi-encoding support.</p>
+            </section>
+
+            <!-- SECURITY -->
+            <section id="container-security">
+                <h2>Container Security</h2>
+                <p>Multi-layer container hardening with real-time threat detection.</p>
+            </section>
+
+            <section id="network-monitor">
+                <h2>Network Monitor</h2>
+                <p>Real-time connection tracking, reverse shell detection, C2 beaconing detection, and DNS inspection.</p>
+            </section>
+
+            <section id="kill-switch">
+                <h2>Kill Switch</h2>
+                <p>Emergency shutdown mechanism that blocks ALL tool execution when a critical threat is detected.</p>
+                <div class="alert alert-danger">
+                    <strong>Activation triggers:</strong> Container escape attempt, unauthorized external connection (host-only mode), VPN disconnect (VPN-only mode), intrusion detection.
+                </div>
+            </section>
+
+            <!-- OPERATIONS -->
+            <section id="strategic">
+                <h2>Strategic Engine</h2>
+                <p>Autonomous offensive security decision-making engine with Bayesian risk modeling, heuristic path planning, and MITRE ATT&CK integration.</p>
+                <div class="card-grid">
+                    <div class="card">
+                        <h4>Brain Engine</h4>
+                        <p>Rule-based + heuristic + Bayesian decision making</p>
+                    </div>
+                    <div class="card">
+                        <h4>Attack Graph</h4>
+                        <p>Weighted pathfinding with nx.DiGraph</p>
+                    </div>
+                    <div class="card">
+                        <h4>Correlation</h4>
+                        <p>Multi-tool output fusion with confidence scoring</p>
+                    </div>
+                    <div class="card">
+                        <h4>Knowledge DB</h4>
+                        <p>CVE, MITRE ATT&CK, exploit and evasion patterns</p>
+                    </div>
+                    <div class="card">
+                        <h4>Orchestrator</h4>
+                        <p>Distributed task scheduling with worker threads</p>
+                    </div>
+                    <div class="card">
+                        <h4>OPSEC</h4>
+                        <p>Scope enforcement, noise control, honeypot detection</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="reports">
+                <h2>Report Generator</h2>
+                <p>Professional penetration test reports in Markdown, HTML (dark theme), and JSON.</p>
+                <div class="alert alert-success">
+                    Includes: Executive summary, CVSS scoring, attack timeline, evidence, remediation, risk heat maps.
+                </div>
+            </section>
+
+            <section id="metrics">
+                <h2>Prometheus Metrics</h2>
+                <p>Full observability with counters, histograms, and gauges exported on port 9090.</p>
+            </section>
+
+            <section id="plugins">
+                <h2>Plugin System</h2>
+                <p>Dynamic plugin loading from <code>plugins/</code> directory with auto-discovery, dependency resolution, and MCP tool registration.</p>
+<pre>
+# Example Plugin (plugins/my_tool.py)
+from nexus_framework.plugin_loader import NexusPlugin
+
+class MyPlugin(NexusPlugin):
+    name = "my_tool"
+    version = "1.0.0"
+    description = "Custom pentesting module"
+
+    def initialize(self, context):
+        return True
+
+    def execute(self, arguments):
+        return {"result": "success"}
+
+    def get_tools(self):
+        return [{"name": "my_custom_tool", "description": "Custom tool"}]
+</pre>
+            </section>
+
+            <!-- DEPLOYMENT -->
+            <section id="docker">
+                <h2>Docker Deployment</h2>
+                <p>Optimized single-layer Dockerfile based on Kali Linux with 100+ preinstalled pentesting tools.</p>
+                <table>
+                    <tr><th>Service</th><th>Port</th><th>Purpose</th></tr>
+                    <tr><td>Nexus Framework</td><td>8000</td><td>MCP Server (SSE)</td></tr>
+                    <tr><td>Prometheus</td><td>9090</td><td>Metrics collection</td></tr>
+                    <tr><td>Grafana</td><td>3001</td><td>Dashboards</td></tr>
+                    <tr><td>Redis</td><td>6379</td><td>Session/cache</td></tr>
+                    <tr><td>PostgreSQL</td><td>5432</td><td>Persistent storage</td></tr>
+                </table>
+            </section>
+
+            <section id="mcp">
+                <h2>MCP Integration</h2>
+                <p>Full Model Context Protocol support with 50+ tools, resource listing, and structured responses.</p>
+                <div class="alert alert-info">
+                    <strong>Transports:</strong> SSE (Server-Sent Events) for web/desktop clients, stdio for CLI integration.
+                </div>
+            </section>
+
+            <section id="env">
+                <h2>Environment Variables</h2>
+                <table>
+                    <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+                    <tr><td><code>NEXUS_PORT</code></td><td>8000</td><td>Server port</td></tr>
+                    <tr><td><code>NEXUS_TRANSPORT</code></td><td>sse</td><td>MCP transport (sse/stdio)</td></tr>
+                    <tr><td><code>NEXUS_KILL_SWITCH_ENABLED</code></td><td>true</td><td>Enable kill switch</td></tr>
+                    <tr><td><code>NEXUS_HOST_ONLY_MODE</code></td><td>true</td><td>Only allow host connections</td></tr>
+                    <tr><td><code>NEXUS_VPN_KILL_SWITCH_ONLY</code></td><td>true</td><td>Require VPN for operations</td></tr>
+                    <tr><td><code>NEXUS_IDS_ENABLED</code></td><td>true</td><td>Enable intrusion detection</td></tr>
+                    <tr><td><code>NEXUS_GLOBAL_RATE_LIMIT</code></td><td>100</td><td>Requests per minute (global)</td></tr>
+                    <tr><td><code>NEXUS_PER_TOOL_RATE_LIMIT</code></td><td>30</td><td>Requests per minute (per tool)</td></tr>
+                    <tr><td><code>NEXUS_DB_JOURNAL_MODE</code></td><td>WAL</td><td>SQLite journal mode</td></tr>
+                    <tr><td><code>NEXUS_DB_CACHE_SIZE</code></td><td>-64000</td><td>SQLite cache (pages)</td></tr>
+                    <tr><td><code>NEXUS_CMD_TIMEOUT</code></td><td>300</td><td>Default command timeout (seconds)</td></tr>
+                    <tr><td><code>NEXUS_LOG_LEVEL</code></td><td>INFO</td><td>Logging level</td></tr>
+                </table>
+            </section>
+
+            <footer style="margin-top: 60px; padding-top: 30px; border-top: 1px solid var(--border); text-align: center; color: var(--text-muted); font-size: 0.85em;">
+                <p>Nexus Automation Framework v1.1.0 — Documentation</p>
+                <p style="margin-top: 4px;">Built with precision for red team operations.</p>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        // Active nav link tracking
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    navLinks.forEach(link => link.classList.remove('active'));
+                    const activeLink = document.querySelector(`.nav-link[href="#${entry.target.id}"]`);
+                    if (activeLink) activeLink.classList.add('active');
+                }
+            });
+        }, { rootMargin: '-20% 0px -70% 0px' });
+
+        sections.forEach(section => observer.observe(section));
+    </script>
+</body>
+</html>

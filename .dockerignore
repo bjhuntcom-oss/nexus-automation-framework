@@ -1,0 +1,70 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.eggs
+dist
+build
+*.egg
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Docs artifacts
+docs/_build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large files - DO NOT copy the 550MB database into the image
+knowledge.db
+*.db
+*.sqlite3
+
+# Logs
+logs/
+*.log
+*.jsonl
+
+# Local sessions and loot
+sessions/
+loot/
+reports/
+downloads/
+metrics/
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+
+# CVE raw data (used only by local scripts to populate DB, not needed at runtime)
+cve-cvelistV5/
+
+# Documentation (not needed in container)
+docs/
+
+# Gemini/Antigravity
+.gemini/
+
+# Docker
+docker-compose.yml
+docker-compose.*.yml
+
+# Env files
+.env
+.env.*
+
+# Temp
+tmp/
+temp/

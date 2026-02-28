@@ -13,12 +13,12 @@ from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
 from dataclasses import dataclass
 
-from bjhunt_alpha.strategic import (
+from nexus_framework.strategic import (
     brain_engine, attack_graph_engine, correlation_engine,
     knowledge_database, execution_engine, orchestrator,
     opsec_manager, governance_manager, observability_manager
 )
-from bjhunt_alpha.tools import run_command, log_action
+from nexus_framework.tools import run_command, log_action
 
 
 @dataclass
@@ -31,7 +31,7 @@ class StrategicOperation:
     risk_tolerance: float
     stealth_requirement: float
     current_phase: str = "reconnaissance"
-    discovered_assets: Dict[str, Any] = None
+    discovered_assets: Dict[str, Any] = None  # type: ignore[assignment]
     
     def __post_init__(self):
         if self.discovered_assets is None:
@@ -69,7 +69,7 @@ class StrategicToolOrchestrator:
     
     def _setup_default_opsec_scope(self):
         """Setup default OPSEC scope for operations."""
-        from bjhunt_alpha.strategic.opsec import ScopeDefinition
+        from nexus_framework.strategic.opsec import ScopeDefinition
         
         default_scope = ScopeDefinition(
             scope_id="default_scope",
@@ -79,8 +79,14 @@ class StrategicToolOrchestrator:
             allowed_ports=set(range(1, 65536)),  # All ports
             forbidden_ports=set(),
             allowed_protocols={"tcp", "udp"},
+            forbidden_protocols=set(),
+            allowed_techniques=set(),  # All techniques allowed by default
+            forbidden_techniques=set(),
+            time_windows=[],  # No time restrictions
+            max_concurrent_connections=10,
+            max_requests_per_minute=60,
             stealth_requirement=0.5,
-            max_requests_per_minute=1000
+            noise_tolerance=0.3
         )
         
         opsec_manager.add_scope(default_scope)
@@ -99,12 +105,16 @@ class StrategicToolOrchestrator:
         )
         
         # Create default admin user
-        user = governance_manager.rbac.create_user(
-            username="strategic_engine",
-            email="strategic@bjhunt.local",
-            roles={governance_manager.rbac.UserRole.ADMIN},
-            tenant_id=tenant.tenant_id
-        )
+        try:
+            from nexus_framework.strategic.governance import UserRole
+            user = governance_manager.rbac.create_user(
+                username="strategic_engine",
+                email="strategic@nexus.local",
+                roles={UserRole.ADMIN},
+                tenant_id=tenant.tenant_id if tenant else "default"
+            )
+        except Exception as e:
+            self.logger.warning(f"Governance user setup skipped: {e}")
         
         # Authenticate and get session
         session_token = governance_manager.rbac.authenticate_user("strategic_engine", "password")
@@ -112,7 +122,7 @@ class StrategicToolOrchestrator:
     
     async def create_strategic_operation(self, objectives: List[str], 
                                        target_scope: List[str],
-                                       constraints: List[str] = None,
+                                       constraints: Optional[List[str]] = None,
                                        risk_tolerance: float = 0.5,
                                        stealth_requirement: float = 0.5) -> str:
         """Create a new strategic operation."""
@@ -178,7 +188,7 @@ class StrategicToolOrchestrator:
         # Add discovered assets to attack graph
         for asset_id, asset_info in operation.discovered_assets.items():
             if asset_info.get("type") == "host":
-                from bjhunt_alpha.strategic.attack_graph import GraphNode, NodeType
+                from nexus_framework.strategic.attack_graph import GraphNode, NodeType
                 
                 node = GraphNode(
                     node_id=asset_id,
@@ -218,7 +228,7 @@ class StrategicToolOrchestrator:
         return recommendations
     
     async def execute_strategic_tool(self, operation_id: str, tool_name: str,
-                                   command: str, parameters: Dict[str, Any] = None) -> Dict[str, Any]:
+                                   command: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute tool with strategic orchestration."""
         if operation_id not in self.active_operations:
             return {"error": "Operation not found"}
@@ -252,7 +262,7 @@ class StrategicToolOrchestrator:
             
             # Process results through correlation engine
             if result.status.value == "completed" and result.stdout:
-                from bjhunt_alpha.strategic.correlation import OutputFormat
+                from nexus_framework.strategic.correlation import OutputFormat
                 
                 normalized_results = await correlation_engine.process_tool_output(
                     output=result.stdout,
@@ -264,7 +274,11 @@ class StrategicToolOrchestrator:
                 # Update operation with discovered assets
                 await self._update_operation_assets(operation_id, normalized_results)
                 
-                result["correlated_findings"] = [r.to_dict() for r in normalized_results]
+                # Attach correlated findings to result dict
+                result_dict = result.__dict__ if hasattr(result, '__dict__') else {}
+                result_dict["correlated_findings"] = [
+                    r.__dict__ if hasattr(r, '__dict__') else str(r) for r in normalized_results
+                ]
             
             # Log execution
             self.logger.info(f"Strategic tool execution completed: {tool_name}")
@@ -314,7 +328,7 @@ class StrategicToolOrchestrator:
         # Process all outputs through correlation engine
         all_findings = []
         for output in tool_outputs:
-            from bjhunt_alpha.strategic.correlation import OutputFormat
+            from nexus_framework.strategic.correlation import OutputFormat
             
             normalized = await correlation_engine.process_tool_output(
                 output=output.get("output", ""),
@@ -329,8 +343,8 @@ class StrategicToolOrchestrator:
         
         return {
             "total_findings": len(all_findings),
-            "correlations": [c.to_dict() for c in correlations],
-            "high_confidence_findings": [f.to_dict() for f in all_findings if f.confidence > 0.8]
+            "correlations": [c.__dict__ if hasattr(c, '__dict__') else str(c) for c in correlations],
+            "high_confidence_findings": [f.__dict__ if hasattr(f, '__dict__') else str(f) for f in all_findings if getattr(f, 'confidence', 0) > 0.8]
         }
     
     def get_operation_status(self, operation_id: str) -> Dict[str, Any]:
@@ -351,7 +365,7 @@ class StrategicToolOrchestrator:
             "objectives": operation.objectives,
             "current_phase": operation.current_phase,
             "discovered_assets": operation.discovered_assets,
-            "brain_status": brain_status.to_dict() if brain_status else None,
+            "brain_status": (brain_status.__dict__ if hasattr(brain_status, '__dict__') else str(brain_status)) if brain_status else None,
             "observability": {
                 "active_alerts": dashboard_data["alerts"]["active_count"],
                 "system_health": dashboard_data["health"]["overall_status"]
@@ -374,6 +388,7 @@ class StrategicToolOrchestrator:
     def shutdown(self):
         """Shutdown strategic orchestrator."""
         try:
+            from nexus_framework.strategic import shutdown_strategic_components
             shutdown_strategic_components()
             self.logger.info("Strategic Tool Orchestrator shutdown successfully")
         except Exception as e:

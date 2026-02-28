@@ -1,5 +1,5 @@
 """
-BJHunt Alpha — Unified Test Suite
+Nexus Automation Framework — Unified Test Suite
 
 Single test file covering all components:
   1. Health Check System (integration)
@@ -10,7 +10,7 @@ Single test file covering all components:
   6. Session Management
   7. MCP Protocol
 
-Run with:  pytest tests/test_bjhunt.py -v
+Run with:  pytest tests/test_nexus.py -v
 """
 
 import asyncio
@@ -58,7 +58,7 @@ class TestHealthCheck:
 
     def test_health_check_imports(self):
         """Health check module imports without errors."""
-        from bjhunt_alpha.healthcheck import (
+        from nexus_framework.healthcheck import (
             Status, CheckResult, HealthReport,
             run_health_check, format_report_text,
         )
@@ -67,7 +67,7 @@ class TestHealthCheck:
 
     def test_health_check_quick(self):
         """Quick health check runs and returns a valid report."""
-        from bjhunt_alpha.healthcheck import run_health_check, Status
+        from nexus_framework.healthcheck import run_health_check, Status
 
         report = run_health_check(quick=True)
 
@@ -79,7 +79,7 @@ class TestHealthCheck:
 
     def test_health_check_full(self):
         """Full health check runs all checks."""
-        from bjhunt_alpha.healthcheck import run_health_check, FULL_CHECKS
+        from nexus_framework.healthcheck import run_health_check, FULL_CHECKS
 
         report = run_health_check(quick=False)
 
@@ -87,7 +87,7 @@ class TestHealthCheck:
 
     def test_health_report_to_dict(self):
         """Health report serializes to dict correctly."""
-        from bjhunt_alpha.healthcheck import run_health_check
+        from nexus_framework.healthcheck import run_health_check
 
         report = run_health_check(quick=True)
         d = report.to_dict()
@@ -102,18 +102,18 @@ class TestHealthCheck:
 
     def test_health_report_format_text(self):
         """Health report formats to readable text."""
-        from bjhunt_alpha.healthcheck import run_health_check, format_report_text
+        from nexus_framework.healthcheck import run_health_check, format_report_text
 
         report = run_health_check(quick=True)
         text = format_report_text(report)
 
-        assert "BJHunt Alpha" in text
+        assert "Nexus Automation Framework" in text
         assert "Health Check Report" in text
         assert report.version in text
 
     def test_check_core_imports(self):
         """Core import check passes."""
-        from bjhunt_alpha.healthcheck import check_core_imports, Status
+        from nexus_framework.healthcheck import check_core_imports, Status
 
         result = check_core_imports()
         assert result.status == Status.OK
@@ -121,23 +121,23 @@ class TestHealthCheck:
 
     def test_check_version(self):
         """Version check returns valid semver."""
-        from bjhunt_alpha.healthcheck import check_version, Status
+        from nexus_framework.healthcheck import check_version, Status
 
         result = check_version()
         assert result.status == Status.OK
         assert "1.0.0" in result.message
 
     def test_check_server_instance(self):
-        """Server instance check confirms bjhunt-alpha name."""
-        from bjhunt_alpha.healthcheck import check_server_instance, Status
+        """Server instance check confirms nexus-automation-framework name."""
+        from nexus_framework.healthcheck import check_server_instance, Status
 
         result = check_server_instance()
         assert result.status == Status.OK
-        assert "bjhunt-alpha" in result.message
+        assert "nexus-automation-framework" in result.message
 
     def test_check_tool_functions(self):
         """All tool functions are found and callable."""
-        from bjhunt_alpha.healthcheck import check_tool_functions, Status
+        from nexus_framework.healthcheck import check_tool_functions, Status
 
         result = check_tool_functions()
         assert result.status == Status.OK
@@ -145,14 +145,14 @@ class TestHealthCheck:
 
     def test_check_utility_functions(self):
         """Utility functions work correctly."""
-        from bjhunt_alpha.healthcheck import check_utility_functions, Status
+        from nexus_framework.healthcheck import check_utility_functions, Status
 
         result = check_utility_functions()
         assert result.status == Status.OK
 
     def test_check_python_dependencies(self):
         """All Python deps are installed."""
-        from bjhunt_alpha.healthcheck import check_python_dependencies, Status
+        from nexus_framework.healthcheck import check_python_dependencies, Status
 
         result = check_python_dependencies()
         assert result.status == Status.OK
@@ -168,22 +168,22 @@ class TestCoreImports:
 
     def test_package_import(self):
         """Package imports successfully."""
-        import bjhunt_alpha
-        assert bjhunt_alpha.__version__ == "1.0.0"
+        import nexus_framework
+        assert nexus_framework.__version__ == "1.0.0"
 
     def test_server_import(self):
         """Server module imports and has required exports."""
-        from bjhunt_alpha.server import (
-            bjhunt_server, handle_tool_request,
+        from nexus_framework.server import (
+            nexus_server, handle_tool_request,
             list_available_tools, list_resources,
             read_resource, main, start_sse_server,
             start_stdio_server,
         )
-        assert bjhunt_server.name == "bjhunt-alpha"
+        assert nexus_server.name == "nexus-automation-framework"
 
     def test_tools_import(self):
         """Tools module imports and has all required functions."""
-        from bjhunt_alpha.tools import (
+        from nexus_framework.tools import (
             fetch_website, run_command, sudo_command,
             list_system_resources, vulnerability_scan,
             web_enumeration, network_discovery, exploit_search,
@@ -203,7 +203,7 @@ class TestCoreImports:
 
     def test_healthcheck_import(self):
         """Healthcheck module imports successfully."""
-        from bjhunt_alpha.healthcheck import (
+        from nexus_framework.healthcheck import (
             run_health_check, format_report_text,
             HealthReport, CheckResult, Status,
         )
@@ -219,7 +219,7 @@ class TestServerRouting:
     @pytest.mark.asyncio
     async def test_unknown_tool_raises(self):
         """Unknown tool name raises ValueError."""
-        from bjhunt_alpha.server import handle_tool_request
+        from nexus_framework.server import handle_tool_request
 
         with pytest.raises(ValueError, match="Unknown tool"):
             await handle_tool_request("nonexistent_tool_xyz", {})
@@ -258,7 +258,7 @@ class TestServerRouting:
     ])
     async def test_missing_required_args(self, tool_name, required_args):
         """Tools with required args raise ValueError when called without them."""
-        from bjhunt_alpha.server import handle_tool_request
+        from nexus_framework.server import handle_tool_request
 
         with pytest.raises(ValueError, match="Missing required argument"):
             await handle_tool_request(tool_name, {})
@@ -270,7 +270,7 @@ class TestServerRouting:
     ])
     async def test_no_required_args_tools(self, tool_name):
         """Tools with no required args execute without raising ValueError."""
-        from bjhunt_alpha.server import handle_tool_request
+        from nexus_framework.server import handle_tool_request
 
         # These tools should not raise ValueError for missing args
         # They may raise other exceptions if not in Docker, but not ValueError
@@ -286,31 +286,31 @@ class TestServerRouting:
     @pytest.mark.asyncio
     async def test_fetch_routing(self):
         """Fetch tool routes correctly with mock."""
-        from bjhunt_alpha.server import handle_tool_request
+        from nexus_framework.server import handle_tool_request
 
         async def mock_fetch(url):
             return [types.TextContent(type="text", text=f"Fetched: {url}")]
 
-        with patch("bjhunt_alpha.server.fetch_website", mock_fetch):
+        with patch("nexus_framework.server.fetch_website", mock_fetch):
             result = await handle_tool_request("fetch", {"url": "https://test.com"})
             assert result[0].text == "Fetched: https://test.com"
 
     @pytest.mark.asyncio
     async def test_run_routing(self):
         """Run tool routes correctly with mock."""
-        from bjhunt_alpha.server import handle_tool_request
+        from nexus_framework.server import handle_tool_request
 
         async def mock_run(command, **kwargs):
             return [types.TextContent(type="text", text=f"Ran: {command}")]
 
-        with patch("bjhunt_alpha.server.run_command", mock_run):
+        with patch("nexus_framework.server.run_command", mock_run):
             result = await handle_tool_request("run", {"command": "whoami"})
             assert "Ran: whoami" in result[0].text
 
     @pytest.mark.asyncio
     async def test_all_registered_tools_are_routable(self):
         """Every tool registered in MCP schema maps to a valid route."""
-        from bjhunt_alpha.server import list_available_tools, handle_tool_request
+        from nexus_framework.server import list_available_tools, handle_tool_request
 
         tools = await list_available_tools()
         unroutable = []
@@ -337,7 +337,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_fetch_website_valid_url(self):
         """fetch_website accepts valid URLs."""
-        from bjhunt_alpha.tools import fetch_website
+        from nexus_framework.tools import fetch_website
 
         mock_response = MagicMock()
         mock_response.text = "<html>Hello</html>"
@@ -348,7 +348,7 @@ class TestToolFunctions:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("bjhunt_alpha.tools.httpx.AsyncClient", return_value=mock_client):
+        with patch("nexus_framework.tools.httpx.AsyncClient", return_value=mock_client):
             result = await fetch_website("https://example.com")
             assert len(result) == 1
             assert result[0].text == "<html>Hello</html>"
@@ -356,7 +356,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_fetch_website_invalid_url(self):
         """fetch_website rejects URLs without protocol."""
-        from bjhunt_alpha.tools import fetch_website
+        from nexus_framework.tools import fetch_website
 
         with pytest.raises(ValueError, match="URL must start with http"):
             await fetch_website("example.com")
@@ -364,7 +364,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_run_command_foreground(self, mock_subprocess):
         """run_command executes foreground commands."""
-        from bjhunt_alpha.tools import run_command
+        from nexus_framework.tools import run_command
 
         mock_shell, mock_proc = mock_subprocess
         result = await run_command("echo hello", timeout=10)
@@ -374,7 +374,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_run_command_background(self, mock_subprocess):
         """run_command handles background execution."""
-        from bjhunt_alpha.tools import run_command
+        from nexus_framework.tools import run_command
 
         mock_shell, mock_proc = mock_subprocess
         result = await run_command("echo hello", background=True)
@@ -384,7 +384,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_run_command_auto_background(self, mock_subprocess):
         """run_command auto-detects long-running commands."""
-        from bjhunt_alpha.tools import run_command
+        from nexus_framework.tools import run_command
 
         mock_shell, mock_proc = mock_subprocess
         result = await run_command("nmap -sS 127.0.0.1")
@@ -393,7 +393,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_sudo_command(self, mock_subprocess):
         """sudo_command prefixes with sudo."""
-        from bjhunt_alpha.tools import sudo_command
+        from nexus_framework.tools import sudo_command
 
         mock_shell, mock_proc = mock_subprocess
         result = await sudo_command("whoami", timeout=10)
@@ -402,7 +402,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_vulnerability_scan(self, mock_subprocess):
         """vulnerability_scan returns expected output structure."""
-        from bjhunt_alpha.tools import vulnerability_scan
+        from nexus_framework.tools import vulnerability_scan
 
         result = await vulnerability_scan("127.0.0.1", "quick")
         assert len(result) == 1
@@ -412,7 +412,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_web_enumeration(self, mock_subprocess):
         """web_enumeration returns expected output."""
-        from bjhunt_alpha.tools import web_enumeration
+        from nexus_framework.tools import web_enumeration
 
         result = await web_enumeration("http://example.com", "basic")
         assert "Starting basic web enumeration" in result[0].text
@@ -420,7 +420,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_network_discovery(self, mock_subprocess):
         """network_discovery returns expected output."""
-        from bjhunt_alpha.tools import network_discovery
+        from nexus_framework.tools import network_discovery
 
         result = await network_discovery("192.168.1.0/24", "quick")
         assert "Starting quick network discovery" in result[0].text
@@ -428,7 +428,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_save_output(self):
         """save_output creates timestamped file."""
-        from bjhunt_alpha.tools import save_output
+        from nexus_framework.tools import save_output
 
         result = await save_output("test data", "test_save", "evidence")
         assert "Content saved successfully" in result[0].text
@@ -437,7 +437,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_create_report_markdown(self):
         """create_report generates markdown report."""
-        from bjhunt_alpha.tools import create_report
+        from nexus_framework.tools import create_report
 
         result = await create_report("Pentest Report", "Found vuln XSS", "markdown")
         assert "Report generated successfully" in result[0].text
@@ -445,7 +445,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_create_report_json(self):
         """create_report generates JSON report."""
-        from bjhunt_alpha.tools import create_report
+        from nexus_framework.tools import create_report
 
         result = await create_report("JSON Report", "Findings data", "json")
         assert "Report generated successfully" in result[0].text
@@ -453,7 +453,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_create_report_text(self):
         """create_report generates text report."""
-        from bjhunt_alpha.tools import create_report
+        from nexus_framework.tools import create_report
 
         result = await create_report("Text Report", "Text findings", "text")
         assert "Report generated successfully" in result[0].text
@@ -461,7 +461,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_list_system_resources(self):
         """list_system_resources returns structured output."""
-        from bjhunt_alpha.tools import list_system_resources
+        from nexus_framework.tools import list_system_resources
 
         result = await list_system_resources()
         assert len(result) == 1
@@ -471,7 +471,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_reverse_shell_listener(self):
         """reverse_shell_listener generates payload hints."""
-        from bjhunt_alpha.tools import reverse_shell_listener
+        from nexus_framework.tools import reverse_shell_listener
 
         result = await reverse_shell_listener(4444, "nc")
         text = result[0].text
@@ -482,7 +482,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_wifi_scan(self):
         """wifi_scan returns scan instructions."""
-        from bjhunt_alpha.tools import wifi_scan
+        from nexus_framework.tools import wifi_scan
 
         result = await wifi_scan("wlan0")
         text = result[0].text
@@ -492,7 +492,7 @@ class TestToolFunctions:
     @pytest.mark.asyncio
     async def test_hash_crack(self):
         """hash_crack returns cracking command."""
-        from bjhunt_alpha.tools import hash_crack
+        from nexus_framework.tools import hash_crack
 
         result = await hash_crack("5f4dcc3b5aa765d61d8327deb882cf99", "md5")
         text = result[0].text
@@ -509,7 +509,7 @@ class TestUtilityFunctions:
 
     def test_sanitize_credentials_password(self):
         """Passwords are masked in output."""
-        from bjhunt_alpha.tools import sanitize_credentials
+        from nexus_framework.tools import sanitize_credentials
 
         result = sanitize_credentials(
             "Login with password MySecret123",
@@ -520,7 +520,7 @@ class TestUtilityFunctions:
 
     def test_sanitize_credentials_hash(self):
         """Hashes are masked in output."""
-        from bjhunt_alpha.tools import sanitize_credentials
+        from nexus_framework.tools import sanitize_credentials
 
         result = sanitize_credentials(
             "Hash is ABCDEF012345",
@@ -531,7 +531,7 @@ class TestUtilityFunctions:
 
     def test_sanitize_credentials_none(self):
         """No masking when no credentials provided."""
-        from bjhunt_alpha.tools import sanitize_credentials
+        from nexus_framework.tools import sanitize_credentials
 
         text = "No credentials here"
         result = sanitize_credentials(text)
@@ -539,19 +539,19 @@ class TestUtilityFunctions:
 
     def test_check_tool_exists_python(self):
         """check_tool_exists finds python."""
-        from bjhunt_alpha.tools import check_tool_exists
+        from nexus_framework.tools import check_tool_exists
 
         assert check_tool_exists("python") or check_tool_exists("python3")
 
     def test_check_tool_exists_missing(self):
         """check_tool_exists returns False for missing tools."""
-        from bjhunt_alpha.tools import check_tool_exists
+        from nexus_framework.tools import check_tool_exists
 
         assert not check_tool_exists("nonexistent_tool_xyz_12345")
 
     def test_is_long_running_detection(self):
         """Long-running command detection."""
-        from bjhunt_alpha.tools import is_long_running
+        from nexus_framework.tools import is_long_running
 
         assert is_long_running("nmap -sS 10.0.0.1")
         assert is_long_running("nikto -h http://target")
@@ -562,7 +562,7 @@ class TestUtilityFunctions:
 
     def test_is_long_running_short_commands(self):
         """Short commands are not detected as long-running."""
-        from bjhunt_alpha.tools import is_long_running
+        from nexus_framework.tools import is_long_running
 
         assert not is_long_running("echo hello")
         assert not is_long_running("whoami")
@@ -572,7 +572,7 @@ class TestUtilityFunctions:
 
     def test_cleanup_old_files(self):
         """cleanup_old_files removes excess files."""
-        from bjhunt_alpha.tools import cleanup_old_files
+        from nexus_framework.tools import cleanup_old_files
 
         # Create test files
         for i in range(15):
@@ -586,7 +586,7 @@ class TestUtilityFunctions:
 
     def test_log_action_no_crash(self):
         """log_action doesn't crash."""
-        from bjhunt_alpha.tools import log_action
+        from nexus_framework.tools import log_action
 
         # Should not raise
         log_action("test_action", key="value", num=42)
@@ -602,7 +602,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_create(self):
         """Create a new session."""
-        from bjhunt_alpha.tools import session_create
+        from nexus_framework.tools import session_create
 
         result = await session_create("pentest_01", "Test session", "192.168.1.1")
         assert "created and set as active" in result[0].text
@@ -611,7 +611,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_create_duplicate(self):
         """Creating duplicate session returns error."""
-        from bjhunt_alpha.tools import session_create
+        from nexus_framework.tools import session_create
 
         await session_create("dup_session", "First", "target")
         result = await session_create("dup_session", "Second", "target")
@@ -620,7 +620,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_list(self):
         """List sessions shows created sessions."""
-        from bjhunt_alpha.tools import session_create, session_list
+        from nexus_framework.tools import session_create, session_list
 
         await session_create("list_test", "For listing", "target")
         result = await session_list()
@@ -629,7 +629,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_list_empty(self):
         """List sessions when none exist."""
-        from bjhunt_alpha.tools import session_list
+        from nexus_framework.tools import session_list
 
         # Clean sessions dir
         shutil.rmtree("sessions", ignore_errors=True)
@@ -641,7 +641,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_switch(self):
         """Switch between sessions."""
-        from bjhunt_alpha.tools import session_create, session_switch
+        from nexus_framework.tools import session_create, session_switch
 
         await session_create("switch_a", "Session A", "target_a")
         await session_create("switch_b", "Session B", "target_b")
@@ -651,7 +651,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_switch_nonexistent(self):
         """Switch to non-existent session fails."""
-        from bjhunt_alpha.tools import session_switch
+        from nexus_framework.tools import session_switch
 
         result = await session_switch("does_not_exist")
         assert "not found" in result[0].text
@@ -659,7 +659,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_status(self):
         """Session status shows active session info."""
-        from bjhunt_alpha.tools import session_create, session_status
+        from nexus_framework.tools import session_create, session_status
 
         await session_create("status_test", "For status", "10.0.0.1")
         result = await session_status()
@@ -669,7 +669,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_history_empty(self):
         """Session history when no activity recorded."""
-        from bjhunt_alpha.tools import session_create, session_history
+        from nexus_framework.tools import session_create, session_history
 
         await session_create("history_test", "For history", "target")
         result = await session_history()
@@ -678,7 +678,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_delete(self):
         """Delete a non-active session."""
-        from bjhunt_alpha.tools import session_create, session_switch, session_delete
+        from nexus_framework.tools import session_create, session_switch, session_delete
 
         await session_create("keep_session", "Keep", "target")
         await session_create("delete_me", "Delete", "target")
@@ -690,7 +690,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_delete_active_fails(self):
         """Cannot delete the active session."""
-        from bjhunt_alpha.tools import session_create, session_delete
+        from nexus_framework.tools import session_create, session_delete
 
         await session_create("active_session", "Active", "target")
         result = await session_delete("active_session")
@@ -699,7 +699,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_session_full_lifecycle(self):
         """Full session lifecycle: create → status → switch → delete."""
-        from bjhunt_alpha.tools import (
+        from nexus_framework.tools import (
             session_create, session_list, session_switch,
             session_status, session_delete, session_history,
         )
@@ -743,7 +743,7 @@ class TestMCPProtocol:
     @pytest.mark.asyncio
     async def test_list_tools_returns_all(self):
         """list_available_tools returns all 35+ tools."""
-        from bjhunt_alpha.server import list_available_tools
+        from nexus_framework.server import list_available_tools
 
         tools = await list_available_tools()
         tool_names = [t.name for t in tools]
@@ -759,7 +759,7 @@ class TestMCPProtocol:
     @pytest.mark.asyncio
     async def test_tool_schemas_valid(self):
         """All tool input schemas have required structure."""
-        from bjhunt_alpha.server import list_available_tools
+        from nexus_framework.server import list_available_tools
 
         tools = await list_available_tools()
         for tool in tools:
@@ -774,7 +774,7 @@ class TestMCPProtocol:
     @pytest.mark.asyncio
     async def test_no_duplicate_tool_names(self):
         """No duplicate tool names in MCP registration."""
-        from bjhunt_alpha.server import list_available_tools
+        from nexus_framework.server import list_available_tools
 
         tools = await list_available_tools()
         names = [t.name for t in tools]
@@ -784,7 +784,7 @@ class TestMCPProtocol:
     @pytest.mark.asyncio
     async def test_required_args_match_schema(self):
         """Tools with required schema args raise ValueError when missing."""
-        from bjhunt_alpha.server import list_available_tools, handle_tool_request
+        from nexus_framework.server import list_available_tools, handle_tool_request
 
         tools = await list_available_tools()
 

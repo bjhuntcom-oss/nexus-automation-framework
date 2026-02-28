@@ -4,3 +4,16 @@ httpx>=0.27
 mcp[cli]>=0.2.0
 starlette>=0.36.0
 uvicorn>=0.27.0
+# Strategic Brain Engine Dependencies
+networkx>=3.0
+numpy>=1.24.0
+scipy>=1.10.0
+# Correlation Engine Dependencies
+xmltodict>=0.13.0
+# Execution Layer Dependencies
+psutil>=5.9.0
+# Governance Dependencies
+PyJWT>=2.8.0
+cryptography>=41.0.0
+# Observability Dependencies
+prometheus-client>=0.17.0

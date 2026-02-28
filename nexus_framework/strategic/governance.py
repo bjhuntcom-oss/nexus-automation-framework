@@ -414,7 +414,7 @@ class PolicyEngine:
             
             if rule_type == 'role_based':
                 required_roles = set(rule.get('required_roles', []))
-                user_roles = set(role.value for role in user.roles)
+                user_roles = set(role.value for role in user.roles) if user and hasattr(user, 'roles') and user.roles else set()
                 
                 if not required_roles.intersection(user_roles):
                     return {
@@ -461,7 +461,7 @@ class PolicyEngine:
                 if data_type in protected_types:
                     # Check if user has clearance
                     required_clearance = rule.get('required_clearance', 'analyst')
-                    user_clearance = max(role.value for role in user.roles)
+                    user_clearance = max((role.value for role in user.roles), default='viewer') if user and hasattr(user, 'roles') and user.roles else 'viewer'
                     
                     clearance_levels = {'viewer': 1, 'analyst': 2, 'operator': 3, 'manager': 4, 'admin': 5}
                     
@@ -631,7 +631,8 @@ class AuditLogger:
         
         # Calculate signature
         entry_data = self._serialize_entry(entry)
-        signature = hmac.new(self.secret_key, entry_data, hashlib.sha256).hexdigest()
+        key = self.secret_key if isinstance(self.secret_key, bytes) else self.secret_key.encode()
+        signature = hmac.new(key, entry_data.encode(), hashlib.sha256).hexdigest()
         entry.signature = signature
         
         # Update chain
@@ -663,7 +664,8 @@ class AuditLogger:
         for i, entry in enumerate(self.audit_chain):
             # Verify signature
             entry_data = self._serialize_entry(entry)
-            expected_signature = hmac.new(self.secret_key, entry_data, hashlib.sha256).hexdigest()
+            key = self.secret_key if isinstance(self.secret_key, bytes) else self.secret_key.encode()
+            expected_signature = hmac.new(key, entry_data.encode(), hashlib.sha256).hexdigest()
             
             if not hmac.compare_digest(entry.signature, expected_signature):
                 self.logger.error(f"Signature verification failed for entry {entry.entry_id}")
@@ -941,6 +943,3 @@ class GovernanceManager:
             'audit_chain_integrity': self.audit_logger.verify_chain_integrity()
         }
 
-
-# Global governance manager instance
-governance_manager = GovernanceManager(secret_key="bjhunt-alpha-secret-key-change-in-production")

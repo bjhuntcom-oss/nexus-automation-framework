@@ -4,7 +4,7 @@
 
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Automation](https://img.shields.io/badge/Automation-FF6B6B?style=for-the-badge&logo=robot&logoColor=white)](https://github.com/bjhuntcom-oss/nexus-automation-framework)
+[![Automation](https://img.shields.io/badge/Automation-FF6B6B?style=for-the-badge&logo=robot&logoColor=white)](https://github.com/nexus-automation-framework/nexus-automation-framework)
 
 ---
 
@@ -179,7 +179,7 @@ nexus-framework/
 ## 🔒 Security Features
 
 - **Credential sanitization** — Passwords and hashes are automatically masked in all outputs
-- **Audit trail** — All actions logged to `bjhunt_audit.jsonl` in structured JSON
+- **Audit trail** — All actions logged to `nexus_audit.jsonl` in structured JSON
 - **Health Check monitoring** — Proactive detection of environment issues
 - **Session management** — Isolated environments for different assessments
 - **File rotation** — Automatic cleanup keeps the workspace tidy
